@@ -252,6 +252,13 @@ void chCoreGetStatusX(memory_area_t *map) {
   map->size = (size_t)(ch_memcore.topmem - ch_memcore.basemem);
   /*lint -restore*/
 }
+size_t _chCoreGetStatusX(void) {
+
+  /*lint -save -e9033 [10.8] The cast is safe.*/
+  return (size_t)(ch_memcore.topmem - ch_memcore.basemem);
+  /*lint -restore*/
+}
+
 #endif /* CH_CFG_USE_MEMCORE == TRUE */
 
 /** @} */
