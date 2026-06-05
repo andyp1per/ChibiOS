@@ -230,7 +230,11 @@ void rp_clock_init(void) {
     t &= ~0x7FFU;                                    /* clear CLKDIV[7:0] and RXDELAY[10:8] */
     t |= ((uint32_t)(RP_QMI_RXDELAY) << 8) | (uint32_t)(RP_QMI_CLKDIV);
     *m0_timing = t;
-    /* Dummy flash read + barriers to ensure new divisor takes effect. */
+    /* DSB ensures the MMIO write reaches the QMI peripheral before the dummy
+     * flash read triggers a QMI transaction with the new timing. */
+    __asm volatile ("dsb sy" ::: "memory");
+    __asm volatile ("isb" ::: "memory");
+    /* Dummy flash read to flush any in-flight XIP prefetch with old timing. */
     (void)(*(volatile uint32_t *)0x10000000U);
     __asm volatile ("dsb sy" ::: "memory");
     __asm volatile ("isb" ::: "memory");
