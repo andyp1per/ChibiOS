@@ -179,10 +179,15 @@ void rp_clock_init(void) {
     extern uint32_t __data_base__;     /* VMA: start of .data in SRAM          */
 
     /* Compute LMA of ramtext = textdata_base + (ramtext_vma - data_vma). */
-    uint32_t *src = &__textdata_base__ +
+    /* volatile is REQUIRED: without it GCC recognises this word loop as a
+     * memcpy() idiom and emits a call to memcpy. Once memcpy itself is
+     * relocated into .ramtext (to keep it out of the XIP cache) that call
+     * would target uninitialised SRAM - the very region this loop exists to
+     * populate - and double-fault at boot. volatile forces the explicit copy. */
+    volatile uint32_t *src = &__textdata_base__ +
                     (&__ramfunc_start__ - &__data_base__);
-    uint32_t *dst = &__ramfunc_start__;
-    uint32_t *end = &__ramfunc_end__;
+    volatile uint32_t *dst = &__ramfunc_start__;
+    volatile uint32_t *end = &__ramfunc_end__;
     while (dst < end) {
       *dst++ = *src++;
     }
