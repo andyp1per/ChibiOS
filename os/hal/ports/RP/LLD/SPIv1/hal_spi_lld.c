@@ -175,7 +175,7 @@ void spi_lld_start(SPIDriver *spip) {
       osalDbgAssert(spip->dmatx != NULL, "unable to allocate stream");
       dmaChannelEnableInterruptX(spip->dmarx);
       dmaChannelEnableInterruptX(spip->dmatx);
-      hal_lld_peripheral_unreset(RESETS_ALLREG_SPI0);
+      rp_peripheral_unreset(RESETS_ALLREG_SPI0);
     }
 #endif
 #if RP_SPI_USE_SPI1 == TRUE
@@ -192,7 +192,7 @@ void spi_lld_start(SPIDriver *spip) {
       osalDbgAssert(spip->dmatx != NULL, "unable to allocate stream");
       dmaChannelEnableInterruptX(spip->dmarx);
       dmaChannelEnableInterruptX(spip->dmatx);
-      hal_lld_peripheral_unreset(RESETS_ALLREG_SPI1);
+      rp_peripheral_unreset(RESETS_ALLREG_SPI1);
     }
 #endif
     else {
@@ -251,12 +251,12 @@ void spi_lld_stop(SPIDriver *spip) {
     }
 #if RP_SPI_USE_SPI0 == TRUE
     else if (&SPID0 == spip) {
-      hal_lld_peripheral_reset(RESETS_ALLREG_SPI0);
+      rp_peripheral_reset(RESETS_ALLREG_SPI0);
     }
 #endif
 #if RP_SPI_USE_SPI1 == TRUE
     else if (&SPID1 == spip) {
-      hal_lld_peripheral_reset(RESETS_ALLREG_SPI1);
+      rp_peripheral_reset(RESETS_ALLREG_SPI1);
     }
 #endif
     else {
@@ -431,10 +431,10 @@ void spi_lld_abort(SPIDriver *spip) {
  */
 uint16_t spi_lld_polled_exchange(SPIDriver *spip, uint16_t frame) {
 
-  (void)spip;
-  (void)frame;
-
-  return 0;
+  spip->spi->SSPDR = (uint32_t)frame;
+  while ((spip->spi->SSPSR & SPI_SSPSR_RNE) == 0U)
+    ;
+  return (uint16_t)spip->spi->SSPDR;
 }
 
 #endif /* HAL_USE_SPI == TRUE */
