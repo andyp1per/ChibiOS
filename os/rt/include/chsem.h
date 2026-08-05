@@ -46,7 +46,7 @@
 /*===========================================================================*/
 
 /**
- * @brief   Semaphore structure.
+ * @brief   Type of a Semaphore object.
  */
 typedef struct ch_semaphore {
   ch_queue_t            queue;      /**< @brief Queue of the threads sleeping
@@ -88,6 +88,7 @@ typedef struct ch_semaphore {
 extern "C" {
 #endif
   void chSemObjectInit(semaphore_t *sp, cnt_t n);
+  void chSemObjectDispose(semaphore_t *sp);
   void chSemResetWithMessage(semaphore_t *sp, cnt_t n, msg_t msg);
   void chSemResetWithMessageI(semaphore_t *sp, cnt_t n, msg_t msg);
   msg_t chSemWait(semaphore_t *sp);
@@ -113,7 +114,7 @@ extern "C" {
  *          to the specified, non negative, value.
  * @note    This function implicitly sends @p MSG_RESET as message.
  *
- * @param[in] sp        pointer to a @p semaphore_t structure
+ * @param[in] sp        pointer to a @p semaphore_t object
  * @param[in] n         the new value of the semaphore counter. The value must
  *                      be non-negative.
  *
@@ -135,7 +136,7 @@ static inline void chSemReset(semaphore_t *sp, cnt_t n) {
  *          reschedule must not be performed in ISRs.
  * @note    This function implicitly sends @p MSG_RESET as message.
  *
- * @param[in] sp        pointer to a @p semaphore_t structure
+ * @param[in] sp        pointer to a @p semaphore_t object
  * @param[in] n         the new value of the semaphore counter. The value must
  *                      be non-negative.
  *
@@ -150,7 +151,7 @@ static inline void chSemResetI(semaphore_t *sp, cnt_t n) {
  * @brief   Decreases the semaphore counter.
  * @details This macro can be used when the counter is known to be positive.
  *
- * @param[in] sp        pointer to a @p semaphore_t structure
+ * @param[in] sp        pointer to a @p semaphore_t object
  *
  * @iclass
  */
@@ -166,7 +167,7 @@ static inline void chSemFastWaitI(semaphore_t *sp) {
  * @details This macro can be used when the counter is known to be not
  *          negative.
  *
- * @param[in] sp        pointer to a @p semaphore_t structure
+ * @param[in] sp        pointer to a @p semaphore_t object
  *
  * @iclass
  */
@@ -180,7 +181,7 @@ static inline void chSemFastSignalI(semaphore_t *sp) {
 /**
  * @brief   Returns the semaphore counter current value.
  *
- * @param[in] sp        pointer to a @p semaphore_t structure
+ * @param[in] sp        pointer to a @p semaphore_t object
  * @return              The semaphore counter value.
  *
  * @iclass

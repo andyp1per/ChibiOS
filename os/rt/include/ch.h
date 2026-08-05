@@ -38,7 +38,7 @@
 /**
  * @brief   Stable release flag.
  */
-#define CH_KERNEL_STABLE        1
+#define CH_KERNEL_STABLE        0
 
 /**
  * @name    ChibiOS/RT version identification
@@ -47,12 +47,12 @@
 /**
  * @brief   Kernel version string.
  */
-#define CH_KERNEL_VERSION       "7.0.6"
+#define CH_KERNEL_VERSION       "8.0.0"
 
 /**
  * @brief   Kernel version major number.
  */
-#define CH_KERNEL_MAJOR         7
+#define CH_KERNEL_MAJOR         8
 
 /**
  * @brief   Kernel version minor number.
@@ -62,7 +62,7 @@
 /**
  * @brief   Kernel version patch number.
  */
-#define CH_KERNEL_PATCH         6
+#define CH_KERNEL_PATCH         0
 /** @} */
 
 /**
@@ -99,13 +99,15 @@
 #include "chrfcu.h"
 #include "chdebug.h"
 #include "chtime.h"
-#include "chlists.h"
 #include "chalign.h"
 #include "chtrace.h"
 #include "chport.h"
+#include "chsafety.h"
+#include "chlists.h"
 #include "chtm.h"
 #include "chstats.h"
 #include "chobjects.h"
+#include "chmem.h"
 #include "chsys.h"
 #include "chinstances.h"
 #include "chvt.h"

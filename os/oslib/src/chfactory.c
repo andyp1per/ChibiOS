@@ -52,11 +52,11 @@
  * Defaults on the best synchronization mechanism available.
  */
 #if (CH_CFG_USE_MUTEXES == TRUE) || defined(__DOXYGEN__)
-#define F_LOCK()        chMtxLock(&ch_factory.mtx)
-#define F_UNLOCK()      chMtxUnlock(&ch_factory.mtx)
+#define FACTORY_LOCK()      chMtxLock(&ch_factory.mtx)
+#define FACTORY_UNLOCK()    chMtxUnlock(&ch_factory.mtx)
 #else
-#define F_LOCK()        (void) chSemWait(&ch_factory.sem)
-#define F_UNLOCK()      chSemSignal(&ch_factory.sem)
+#define FACTORY_LOCK()      (void) chSemWait(&ch_factory.sem)
+#define FACTORY_UNLOCK()    chSemSignal(&ch_factory.sem)
 #endif
 
 /*===========================================================================*/
@@ -124,16 +124,20 @@ static bool align_size(size_t size, unsigned align, size_t *result) {
 }
 #endif /* CH_CFG_FACTORY_OBJ_FIFOS */
 
-static void copy_name(const char *sp, char *dp) {
-  unsigned i;
-  char c;
+static void copy_name(const char *sp, dyn_element_t *dep) {
+#if (CH_CFG_FACTORY_MAX_NAMES_LENGTH > 0) || defined(__DOXYGEN__)
+  unsigned i = CH_CFG_FACTORY_MAX_NAMES_LENGTH;
+  char *dp = dep->name;
 
-  i = CH_CFG_FACTORY_MAX_NAMES_LENGTH;
-  do {
-    c = *sp++;
-    *dp++ = c;
+  while ((i > 1U) && (*sp != (char)0)) {
+    *dp++ = *sp++;
     i--;
-  } while ((c != (char)0) && (i > 0U));
+  }
+
+  *dp = (char)0;
+#else
+  dep->name = sp;
+#endif
 }
 
 static inline void dyn_list_init(dyn_list_t *dlp) {
@@ -145,7 +149,11 @@ static dyn_element_t *dyn_list_find(const char *name, dyn_list_t *dlp) {
   dyn_element_t *p = dlp->next;
 
   while (p != (dyn_element_t *)dlp) {
-    if (strncmp(p->name, name, CH_CFG_FACTORY_MAX_NAMES_LENGTH) == 0) {
+#if (CH_CFG_FACTORY_MAX_NAMES_LENGTH > 0) || defined(__DOXYGEN__)
+    if (strncmp(p->name, name, CH_CFG_FACTORY_MAX_NAMES_LENGTH - 1U) == 0) {
+#else
+    if (p->name == name) {
+#endif
       return p;
     }
     p = p->next;
@@ -201,7 +209,7 @@ static dyn_element_t *dyn_create_object_heap(const char *name,
   }
 
   /* Initializing object list element.*/
-  copy_name(name, dep->name);
+  copy_name(name, dep);
   dep->refs = (ucnt_t)1;
   dep->next = dlp->next;
 
@@ -211,7 +219,7 @@ static dyn_element_t *dyn_create_object_heap(const char *name,
   return dep;
 }
 
-static void dyn_release_object_heap(dyn_element_t *dep,
+static ucnt_t dyn_release_object_heap(dyn_element_t *dep,
                                       dyn_list_t *dlp) {
   dyn_element_t *prev;
   ucnt_t refs;
@@ -230,8 +238,13 @@ static void dyn_release_object_heap(dyn_element_t *dep,
     }
   }
   else {
+
     chDbgAssert(false, "unknown object");
+
+    refs = (ucnt_t)0;
   }
+
+  return refs;
 }
 #endif /* CH_FACTORY_REQUIRES_HEAP */
 
@@ -243,7 +256,7 @@ static dyn_element_t *dyn_create_object_pool(const char *name,
 
   chDbgCheck(name != NULL);
 
-  /* Checking if an object object with this name has already been created.*/
+  /* Checking if an object with this name has already been created.*/
   dep = dyn_list_find(name, dlp);
   if (dep != NULL) {
     return NULL;
@@ -256,7 +269,7 @@ static dyn_element_t *dyn_create_object_pool(const char *name,
   }
 
   /* Initializing object list element.*/
-  copy_name(name, dep->name);
+  copy_name(name, dep);
   dep->refs = (ucnt_t)1;
   dep->next = dlp->next;
 
@@ -266,7 +279,7 @@ static dyn_element_t *dyn_create_object_pool(const char *name,
   return dep;
 }
 
-static void dyn_release_object_pool(dyn_element_t *dep,
+static ucnt_t dyn_release_object_pool(dyn_element_t *dep,
                                       dyn_list_t *dlp,
                                       memory_pool_t *mp) {
   dyn_element_t *prev;
@@ -286,8 +299,13 @@ static void dyn_release_object_pool(dyn_element_t *dep,
     }
   }
   else {
+
     chDbgAssert(false, "unknown object");
+
+    refs = (ucnt_t)0;
   }
+
+  return refs;
 }
 #endif /* CH_FACTORY_REQUIRES_POOLS */
 
@@ -362,17 +380,17 @@ dyn_element_t *chFactoryDuplicateReference(dyn_element_t *dep) {
 
   chDbgCheck(dep != NULL);
 
-  F_LOCK();
+  FACTORY_LOCK();
 
   chDbgAssert(dep->refs > (ucnt_t)0, "invalid references number");
   dep->refs++;
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
 
   return dep;
 }
 
-#if (CH_CFG_FACTORY_OBJECTS_REGISTRY == TRUE) || defined(__DOXIGEN__)
+#if (CH_CFG_FACTORY_OBJECTS_REGISTRY == TRUE) || defined(__DOXYGEN__)
 /**
  * @brief   Registers a generic object.
  * @post    A reference to the registered object is returned and the
@@ -391,7 +409,7 @@ registered_object_t *chFactoryRegisterObject(const char *name,
                                              void *objp) {
   registered_object_t *rop;
 
-  F_LOCK();
+  FACTORY_LOCK();
 
   rop = (registered_object_t *)dyn_create_object_pool(name,
                                                       &ch_factory.obj_list,
@@ -401,7 +419,7 @@ registered_object_t *chFactoryRegisterObject(const char *name,
     rop->objp = objp;
   }
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
 
   return rop;
 }
@@ -422,11 +440,11 @@ registered_object_t *chFactoryRegisterObject(const char *name,
 registered_object_t *chFactoryFindObject(const char *name) {
   registered_object_t *rop;
 
-  F_LOCK();
+  FACTORY_LOCK();
 
   rop = (registered_object_t *)dyn_find_object(name, &ch_factory.obj_list);
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
 
   return rop;
 }
@@ -447,50 +465,58 @@ registered_object_t *chFactoryFindObject(const char *name) {
 registered_object_t *chFactoryFindObjectByPointer(void *objp) {
   registered_object_t *rop;
 
-  F_LOCK();
+  FACTORY_LOCK();
 
   rop = (registered_object_t *)ch_factory.obj_list.next;
+
   while ((void *)rop != (void *)&ch_factory.obj_list) {
     if (rop->objp == objp) {
       rop->element.refs++;
 
-      F_UNLOCK();
+      FACTORY_UNLOCK();
 
       return rop;
     }
     rop = (registered_object_t *)rop->element.next;
   }
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
 
   return NULL;
 }
 
 /**
- * @brief   Releases a registered object.
+ * @brief   Releases a registered object and report subsequent reference count.
  * @details The reference counter of the registered object is decreased
- *          by one, if reaches zero then the registered object memory
- *          is freed.
- * @note    The object itself is not freed, it could be static, only the
- *          allocated list element is freed.
+ *          by one. If the count reaches zero then the containing list element
+ *          is returned to the free pool. The reference count is returned so
+ *          that caller can take action based on references becoming zero.
+ * @note    The registered object itself is not freed since it could be static.
+ *          Only the containing list element is freed.
  *
  * @param[in] rop       registered object reference
+ * @return              The reference count of registered object subsequent to
+ *                      release.
+ * @retval 0            if the object has been released.
  *
  * @api
  */
-void chFactoryReleaseObject(registered_object_t *rop) {
+ucnt_t chFactoryReleaseObject(registered_object_t *rop) {
+  ucnt_t refs;
 
-  F_LOCK();
+  FACTORY_LOCK();
 
-  dyn_release_object_pool(&rop->element,
-                          &ch_factory.obj_list,
-                          &ch_factory.obj_pool);
+  refs = dyn_release_object_pool(&rop->element,
+                                 &ch_factory.obj_list,
+                                 &ch_factory.obj_pool);
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
+
+  return refs;
 }
 #endif /* CH_CFG_FACTORY_OBJECTS_REGISTRY == TRUE */
 
-#if (CH_CFG_FACTORY_GENERIC_BUFFERS == TRUE) || defined(__DOXIGEN__)
+#if (CH_CFG_FACTORY_GENERIC_BUFFERS == TRUE) || defined(__DOXYGEN__)
 /**
  * @brief   Creates a generic dynamic buffer object.
  * @post    A reference to the dynamic buffer object is returned and the
@@ -514,7 +540,7 @@ dyn_buffer_t *chFactoryCreateBuffer(const char *name, size_t size) {
     return NULL;
   }
 
-  F_LOCK();
+  FACTORY_LOCK();
 
   dbp = (dyn_buffer_t *)dyn_create_object_heap(name,
                                                &ch_factory.buf_list,
@@ -525,7 +551,7 @@ dyn_buffer_t *chFactoryCreateBuffer(const char *name, size_t size) {
     memset((void *)(dbp + 1), 0, size);
   }
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
 
   return dbp;
 }
@@ -546,11 +572,11 @@ dyn_buffer_t *chFactoryCreateBuffer(const char *name, size_t size) {
 dyn_buffer_t *chFactoryFindBuffer(const char *name) {
   dyn_buffer_t *dbp;
 
-  F_LOCK();
+  FACTORY_LOCK();
 
   dbp = (dyn_buffer_t *)dyn_find_object(name, &ch_factory.buf_list);
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
 
   return dbp;
 }
@@ -562,20 +588,26 @@ dyn_buffer_t *chFactoryFindBuffer(const char *name) {
  *          is freed.
  *
  * @param[in] dbp       dynamic buffer object reference
+ * @return              The reference count of registered object subsequent to
+ *                      release.
+ * @retval 0            if the object has been released.
  *
  * @api
  */
-void chFactoryReleaseBuffer(dyn_buffer_t *dbp) {
+ucnt_t chFactoryReleaseBuffer(dyn_buffer_t *dbp) {
+  ucnt_t refs;
 
-  F_LOCK();
+  FACTORY_LOCK();
 
-  dyn_release_object_heap(&dbp->element, &ch_factory.buf_list);
+  refs = dyn_release_object_heap(&dbp->element, &ch_factory.buf_list);
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
+
+  return refs;
 }
 #endif /* CH_CFG_FACTORY_GENERIC_BUFFERS = TRUE */
 
-#if (CH_CFG_FACTORY_SEMAPHORES == TRUE) || defined(__DOXIGEN__)
+#if (CH_CFG_FACTORY_SEMAPHORES == TRUE) || defined(__DOXYGEN__)
 /**
  * @brief   Creates a dynamic semaphore object.
  * @post    A reference to the dynamic semaphore object is returned and the
@@ -594,17 +626,17 @@ void chFactoryReleaseBuffer(dyn_buffer_t *dbp) {
 dyn_semaphore_t *chFactoryCreateSemaphore(const char *name, cnt_t n) {
   dyn_semaphore_t *dsp;
 
-  F_LOCK();
+  FACTORY_LOCK();
 
   dsp = (dyn_semaphore_t *)dyn_create_object_pool(name,
                                                   &ch_factory.sem_list,
                                                   &ch_factory.sem_pool);
   if (dsp != NULL) {
-    /* Initializing semaphore object dataa.*/
+    /* Initializing semaphore object data.*/
     chSemObjectInit(&dsp->sem, n);
   }
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
 
   return dsp;
 }
@@ -625,11 +657,11 @@ dyn_semaphore_t *chFactoryCreateSemaphore(const char *name, cnt_t n) {
 dyn_semaphore_t *chFactoryFindSemaphore(const char *name) {
   dyn_semaphore_t *dsp;
 
-  F_LOCK();
+  FACTORY_LOCK();
 
   dsp = (dyn_semaphore_t *)dyn_find_object(name, &ch_factory.sem_list);
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
 
   return dsp;
 }
@@ -641,22 +673,28 @@ dyn_semaphore_t *chFactoryFindSemaphore(const char *name) {
  *          is freed.
  *
  * @param[in] dsp       dynamic semaphore object reference
+ * @return              The reference count of registered object subsequent to
+ *                      release.
+ * @retval 0            if the object has been released.
  *
  * @api
  */
-void chFactoryReleaseSemaphore(dyn_semaphore_t *dsp) {
+ucnt_t chFactoryReleaseSemaphore(dyn_semaphore_t *dsp) {
+  ucnt_t refs;
 
-  F_LOCK();
+  FACTORY_LOCK();
 
-  dyn_release_object_pool(&dsp->element,
-                          &ch_factory.sem_list,
-                          &ch_factory.sem_pool);
+  refs = dyn_release_object_pool(&dsp->element,
+                                 &ch_factory.sem_list,
+                                 &ch_factory.sem_pool);
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
+
+  return refs;
 }
 #endif /* CH_CFG_FACTORY_SEMAPHORES = TRUE */
 
-#if (CH_CFG_FACTORY_MAILBOXES == TRUE) || defined(__DOXIGEN__)
+#if (CH_CFG_FACTORY_MAILBOXES == TRUE) || defined(__DOXYGEN__)
 /**
  * @brief   Creates a dynamic mailbox object.
  * @post    A reference to the dynamic mailbox object is returned and the
@@ -681,7 +719,7 @@ dyn_mailbox_t *chFactoryCreateMailbox(const char *name, size_t n) {
     return NULL;
   }
 
-  F_LOCK();
+  FACTORY_LOCK();
 
   dmp = (dyn_mailbox_t *)dyn_create_object_heap(name,
                                                 &ch_factory.mbx_list,
@@ -692,7 +730,7 @@ dyn_mailbox_t *chFactoryCreateMailbox(const char *name, size_t n) {
     chMBObjectInit(&dmp->mbx, (msg_t *)(dmp + 1), n);
   }
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
 
   return dmp;
 }
@@ -713,11 +751,11 @@ dyn_mailbox_t *chFactoryCreateMailbox(const char *name, size_t n) {
 dyn_mailbox_t *chFactoryFindMailbox(const char *name) {
   dyn_mailbox_t *dmp;
 
-  F_LOCK();
+  FACTORY_LOCK();
 
   dmp = (dyn_mailbox_t *)dyn_find_object(name, &ch_factory.mbx_list);
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
 
   return dmp;
 }
@@ -729,20 +767,26 @@ dyn_mailbox_t *chFactoryFindMailbox(const char *name) {
  *          is freed.
  *
  * @param[in] dmp       dynamic mailbox object reference
+ * @return              The reference count of registered object subsequent to
+ *                      release.
+ * @retval 0            if the object has been released.
  *
  * @api
  */
-void chFactoryReleaseMailbox(dyn_mailbox_t *dmp) {
+ucnt_t chFactoryReleaseMailbox(dyn_mailbox_t *dmp) {
+  ucnt_t refs;
 
-  F_LOCK();
+  FACTORY_LOCK();
 
-  dyn_release_object_heap(&dmp->element, &ch_factory.mbx_list);
+  refs = dyn_release_object_heap(&dmp->element, &ch_factory.mbx_list);
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
+
+  return refs;
 }
 #endif /* CH_CFG_FACTORY_MAILBOXES = TRUE */
 
-#if (CH_CFG_FACTORY_OBJ_FIFOS == TRUE) || defined(__DOXIGEN__)
+#if (CH_CFG_FACTORY_OBJ_FIFOS == TRUE) || defined(__DOXYGEN__)
 /**
  * @brief   Creates a dynamic "objects FIFO" object.
  * @post    A reference to the dynamic "objects FIFO" object is returned and
@@ -781,7 +825,7 @@ dyn_objects_fifo_t *chFactoryCreateObjectsFIFO(const char *name,
     return NULL;
   }
 
-  F_LOCK();
+  FACTORY_LOCK();
 
   /* Allocating the FIFO object with messages buffer and objects buffer.*/
   dofp = (dyn_objects_fifo_t *)dyn_create_object_heap(name,
@@ -792,12 +836,12 @@ dyn_objects_fifo_t *chFactoryCreateObjectsFIFO(const char *name,
     msg_t *msgbuf = (msg_t *)(dofp + 1);
     uint8_t *objbuf = (uint8_t *)dofp + size1;
 
-    /* Initializing mailbox object data.*/
+    /* Initializing objects FIFO data.*/
     chFifoObjectInitAligned(&dofp->fifo, objsize, objn, objalign,
                             (void *)objbuf, msgbuf);
   }
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
 
   return dofp;
 }
@@ -819,11 +863,11 @@ dyn_objects_fifo_t *chFactoryCreateObjectsFIFO(const char *name,
 dyn_objects_fifo_t *chFactoryFindObjectsFIFO(const char *name) {
   dyn_objects_fifo_t *dofp;
 
-  F_LOCK();
+  FACTORY_LOCK();
 
   dofp = (dyn_objects_fifo_t *)dyn_find_object(name, &ch_factory.fifo_list);
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
 
   return dofp;
 }
@@ -835,20 +879,26 @@ dyn_objects_fifo_t *chFactoryFindObjectsFIFO(const char *name) {
  *          object memory is freed.
  *
  * @param[in] dofp      dynamic "objects FIFO" object reference
+ * @return              The reference count of registered object subsequent to
+ *                      release.
+ * @retval 0            if the object has been released.
  *
  * @api
  */
-void chFactoryReleaseObjectsFIFO(dyn_objects_fifo_t *dofp) {
+ucnt_t chFactoryReleaseObjectsFIFO(dyn_objects_fifo_t *dofp) {
+  ucnt_t refs;
 
-  F_LOCK();
+  FACTORY_LOCK();
 
-  dyn_release_object_heap(&dofp->element, &ch_factory.fifo_list);
+  refs = dyn_release_object_heap(&dofp->element, &ch_factory.fifo_list);
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
+
+  return refs;
 }
 #endif /* CH_CFG_FACTORY_OBJ_FIFOS = TRUE */
 
-#if (CH_CFG_FACTORY_PIPES == TRUE) || defined(__DOXIGEN__)
+#if (CH_CFG_FACTORY_PIPES == TRUE) || defined(__DOXYGEN__)
 /**
  * @brief   Creates a dynamic pipe object.
  * @post    A reference to the dynamic pipe object is returned and
@@ -874,18 +924,18 @@ dyn_pipe_t *chFactoryCreatePipe(const char *name, size_t size) {
     return NULL;
   }
 
-  F_LOCK();
+  FACTORY_LOCK();
 
   dpp = (dyn_pipe_t *)dyn_create_object_heap(name,
                                              &ch_factory.pipe_list,
                                              alloc_size,
                                              CH_HEAP_ALIGNMENT);
   if (dpp != NULL) {
-    /* Initializing mailbox object data.*/
+    /* Initializing pipe object data.*/
     chPipeObjectInit(&dpp->pipe, (uint8_t *)(dpp + 1), size);
   }
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
 
   return dpp;
 }
@@ -907,11 +957,11 @@ dyn_pipe_t *chFactoryCreatePipe(const char *name, size_t size) {
 dyn_pipe_t *chFactoryFindPipe(const char *name) {
   dyn_pipe_t *dpp;
 
-  F_LOCK();
+  FACTORY_LOCK();
 
   dpp = (dyn_pipe_t *)dyn_find_object(name, &ch_factory.pipe_list);
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
 
   return dpp;
 }
@@ -923,16 +973,22 @@ dyn_pipe_t *chFactoryFindPipe(const char *name) {
  *          object memory is freed.
  *
  * @param[in] dpp       dynamic pipe object reference
+ * @return              The reference count of registered object subsequent to
+ *                      release.
+ * @retval 0            if the object has been released.
  *
  * @api
  */
-void chFactoryReleasePipe(dyn_pipe_t *dpp) {
+ucnt_t chFactoryReleasePipe(dyn_pipe_t *dpp) {
+  ucnt_t refs;
 
-  F_LOCK();
+  FACTORY_LOCK();
 
-  dyn_release_object_heap(&dpp->element, &ch_factory.pipe_list);
+  refs = dyn_release_object_heap(&dpp->element, &ch_factory.pipe_list);
 
-  F_UNLOCK();
+  FACTORY_UNLOCK();
+
+  return refs;
 }
 #endif /* CH_CFG_FACTORY_PIPES = TRUE */
 

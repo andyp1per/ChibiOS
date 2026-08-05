@@ -122,6 +122,9 @@ __port_thread_start:
 #if CH_DBG_STATISTICS
                 bl      __stats_stop_measure_crit_thd
 #endif
+#if CH_CFG_SMP_MODE == TRUE
+                bl      __port_spinlock_release
+#endif
 #if CORTEX_SIMPLIFIED_PRIORITY
                 cpsie   i
 #else
@@ -132,7 +135,7 @@ __port_thread_start:
                 blx     r4
                 movs    r0, #0              /* MSG_OK */
                 bl      chThdExit
-.zombies:       b       .zombies
+1:              b       1b
 
 /*--------------------------------------------------------------------------*
  * Post-IRQ switch code.
@@ -162,11 +165,14 @@ __port_exit_from_isr:
                 movt    r3, #:upper16:SCB_ICSR
                 mov     r2, ICSR_PENDSVSET
                 str     r2, [r3, #0]
+#if CH_CFG_SMP_MODE == TRUE
+                bl      __port_spinlock_release
+#endif
                 cpsie   i
 #else /* !CORTEX_SIMPLIFIED_PRIORITY */
                 svc     #0
 #endif /* !CORTEX_SIMPLIFIED_PRIORITY */
-.L1:            b       .L1
+1:              b       1b
 
 #endif /* !defined(__DOXYGEN__) */
 

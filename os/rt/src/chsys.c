@@ -41,76 +41,72 @@
 /**
  * @brief   System root object.
  */
-ch_system_t ch_system;
+CH_MEM_GLOBAL_COHERENT_BSS ch_system_t ch_system;
 
 /**
  * @brief   Core 0 OS instance.
+ * @note    It needs to be a local coherent memory because all cores should
+ *          be able to access it but it is accessed mainly by the owner core.
  */
-CH_SYS_CORE0_MEMORY os_instance_t ch0;
+CH_MEM_LOCAL_COHERENT_BSS(0) os_instance_t ch0;
 
 #if (CH_CFG_NO_IDLE_THREAD == FALSE) || defined(__DOXYGEN__)
 /**
  * @brief   Working area for core 0 idle thread.
+ * @note    This could be a fully private area but the legacy threads
+ *          creation API puts the @p thread_t structure inside so it
+ *          needs to be "local".
  */
-static CH_SYS_CORE0_MEMORY THD_WORKING_AREA(ch_c0_idle_thread_wa,
-                                            PORT_IDLE_THREAD_STACK_SIZE);
+static CH_MEM_LOCAL_COHERENT_BSS(0) THD_STACK(ch_c0_idle_thread_wa,
+                                              PORT_IDLE_THREAD_STACK_SIZE);
 #endif
 
-#if CH_DBG_ENABLE_STACK_CHECK == TRUE
-extern stkalign_t __main_thread_stack_base__, __main_thread_stack_end__;
-#endif
+extern stkline_t __main_thread_stack_base__, __main_thread_stack_end__;
 
 /**
  * @brief   Core 0 OS instance configuration.
  */
 const os_instance_config_t ch_core0_cfg = {
   .name             = "c0",
-#if CH_DBG_ENABLE_STACK_CHECK == TRUE
-  .mainthread_base  = &__main_thread_stack_base__,
-  .mainthread_end   = &__main_thread_stack_end__,
-#elif CH_CFG_USE_DYNAMIC == TRUE
-  .mainthread_base  = NULL,
-  .mainthread_end   = NULL,
-#endif
+  .cstack_base      = &__main_thread_stack_base__,
+  .cstack_end       = &__main_thread_stack_end__,
 #if CH_CFG_NO_IDLE_THREAD == FALSE
-  .idlethread_base  = THD_WORKING_AREA_BASE(ch_c0_idle_thread_wa),
-  .idlethread_end   = THD_WORKING_AREA_END(ch_c0_idle_thread_wa)
+  .idlestack_base   = THD_STACK_BASE(ch_c0_idle_thread_wa),
+  .idlestack_end    = THD_STACK_END(ch_c0_idle_thread_wa)
 #endif
 };
 
 #if (PORT_CORES_NUMBER > 1) || defined(__DOXYGEN__)
 /**
  * @brief   Core 1 OS instance.
+ * @note    It needs to be a local coherent memory because all cores should
+ *          be able to access it but it is accessed mainly by the owner core.
  */
-CH_SYS_CORE1_MEMORY os_instance_t ch1;
+CH_MEM_LOCAL_COHERENT_BSS(1) os_instance_t ch1;
 
 #if (CH_CFG_NO_IDLE_THREAD == FALSE) || defined(__DOXYGEN__)
 /**
  * @brief   Working area for core 1 idle thread.
+ * @note    This could be a fully private area but the legacy threads
+ *          creation API puts the @p thread_t structure inside so it
+ *          needs to be "local".
  */
-static CH_SYS_CORE1_MEMORY THD_WORKING_AREA(ch_c1_idle_thread_wa,
-                                            PORT_IDLE_THREAD_STACK_SIZE);
+static CH_MEM_LOCAL_COHERENT_BSS(1) THD_STACK(ch_c1_idle_thread_wa,
+                                              PORT_IDLE_THREAD_STACK_SIZE);
 #endif
 
-#if CH_DBG_ENABLE_STACK_CHECK == TRUE
-extern stkalign_t __c1_main_thread_stack_base__, __c1_main_thread_stack_end__;
-#endif
+extern stkline_t __c1_main_thread_stack_base__, __c1_main_thread_stack_end__;
 
 /**
  * @brief   Core 1 OS instance configuration.
  */
 const os_instance_config_t ch_core1_cfg = {
   .name             = "c1",
-#if CH_DBG_ENABLE_STACK_CHECK == TRUE
-  .mainthread_base  = &__c1_main_thread_stack_base__,
-  .mainthread_end   = &__c1_main_thread_stack_end__,
-#elif CH_CFG_USE_DYNAMIC == TRUE
-  .mainthread_base  = NULL,
-  .mainthread_end   = NULL,
-#endif
+  .cstack_base      = &__c1_main_thread_stack_base__,
+  .cstack_end       = &__c1_main_thread_stack_end__,
 #if CH_CFG_NO_IDLE_THREAD == FALSE
-  .idlethread_base  = THD_WORKING_AREA_BASE(ch_c1_idle_thread_wa),
-  .idlethread_end   = THD_WORKING_AREA_END(ch_c1_idle_thread_wa)
+  .idlestack_base   = THD_STACK_BASE(ch_c1_idle_thread_wa),
+  .idlestack_end    = THD_STACK_END(ch_c1_idle_thread_wa)
 #endif
 };
 #endif /* PORT_CORES_NUMBER > 1 */
@@ -146,9 +142,9 @@ void chSysWaitSystemState(system_state_t state) {
 
 /**
  * @brief   System initialization.
- * @details After executing this function the current instructions stream
+ * @details After executing this function the current instruction stream
  *          becomes the main thread.
- * @pre     Interrupts must disabled before invoking this function.
+ * @pre     Interrupts must be disabled before invoking this function.
  * @post    The main thread is created with priority @p NORMALPRIO and
  *          interrupts are enabled.
  * @post    the system is in @p ch_sys_running state.
@@ -250,125 +246,6 @@ thread_t *chSysGetIdleThreadX(void) {
   chDbgAssert(tp->hdr.pqueue.prio == IDLEPRIO, "not idle thread");
 
   return tp;
-}
-
-/**
- * @brief   System integrity check.
- * @details Performs an integrity check of the important ChibiOS/RT data
- *          structures.
- * @note    The appropriate action in case of failure is to halt the system
- *          before releasing the critical zone.
- * @note    If the system is corrupted then one possible outcome of this
- *          function is an exception caused by @p NULL or corrupted pointers
- *          in list elements. Exception vectors must be monitored as well.
- * @note    This function is not used internally, it is up to the
- *          application to define if and where to perform system
- *          checking.
- * @note    Performing all tests at once can be a slow operation and can
- *          degrade the system response time. It is suggested to execute
- *          one test at time and release the critical zone in between tests.
- *
- * @param[in] testmask  Each bit in this mask is associated to a test to be
- *                      performed.
- * @return              The test result.
- * @retval false        The test succeeded.
- * @retval true         Test failed.
- *
- * @iclass
- */
-bool chSysIntegrityCheckI(unsigned testmask) {
-  os_instance_t *oip = currcore;
-  cnt_t n;
-
-  chDbgCheckClassI();
-
-  /* Ready List integrity check.*/
-  if ((testmask & CH_INTEGRITY_RLIST) != 0U) {
-    ch_priority_queue_t *pqp;
-
-    /* Scanning the ready list forward.*/
-    n = (cnt_t)0;
-    pqp = oip->rlist.pqueue.next;
-    while (pqp != &oip->rlist.pqueue) {
-      n++;
-      pqp = pqp->next;
-    }
-
-    /* Scanning the ready list backward.*/
-    pqp = oip->rlist.pqueue.prev;
-    while (pqp != &oip->rlist.pqueue) {
-      n--;
-      pqp = pqp->prev;
-    }
-
-    /* The number of elements must match.*/
-    if (n != (cnt_t)0) {
-      return true;
-    }
-  }
-
-  /* Timers list integrity check.*/
-  if ((testmask & CH_INTEGRITY_VTLIST) != 0U) {
-    ch_delta_list_t *dlp;
-
-    /* Scanning the timers list forward.*/
-    n = (cnt_t)0;
-    dlp = oip->vtlist.dlist.next;
-    while (dlp != &oip->vtlist.dlist) {
-      n++;
-      dlp = dlp->next;
-    }
-
-    /* Scanning the timers list backward.*/
-    dlp = oip->vtlist.dlist.prev;
-    while (dlp != &oip->vtlist.dlist) {
-      n--;
-      dlp = dlp->prev;
-    }
-
-    /* The number of elements must match.*/
-    if (n != (cnt_t)0) {
-      return true;
-    }
-  }
-
-#if CH_CFG_USE_REGISTRY == TRUE
-  if ((testmask & CH_INTEGRITY_REGISTRY) != 0U) {
-    ch_queue_t *qp, *rqp;
-
-    /* Registry header, access to this list depends on the current
-       kernel configuration.*/
-    rqp = REG_HEADER(oip);
-
-    /* Scanning the registry list forward.*/
-    n = (cnt_t)0;
-    qp = rqp->next;
-    while (qp != rqp) {
-      n++;
-      qp = qp->next;
-    }
-
-    /* Scanning the registry list backward.*/
-    qp = rqp->prev;
-    while (qp != rqp) {
-      n--;
-      qp = qp->prev;
-    }
-
-    /* The number of elements must match.*/
-    if (n != (cnt_t)0) {
-      return true;
-    }
-  }
-#endif /* CH_CFG_USE_REGISTRY == TRUE */
-
-#if defined(PORT_INTEGRITY_CHECK)
-  if ((testmask & CH_INTEGRITY_PORT) != 0U) {
-    PORT_INTEGRITY_CHECK();
-  }
-#endif
-
-  return false;
 }
 
 /**

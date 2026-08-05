@@ -81,8 +81,8 @@ static thread_t *__sch_ready_behind(thread_t *tp) {
 }
 
 /**
- * @brief   Inserts a thread in the Ready List placing it ahead its peers.
- * @details The thread is positioned ahead all threads with higher or equal
+ * @brief   Inserts a thread in the Ready List placing it ahead of its peers.
+ * @details The thread is positioned ahead of all threads with higher or equal
  *          priority.
  * @pre     The thread must not be already inserted in any list through its
  *          @p next and @p prev or list corruption would occur.
@@ -250,7 +250,13 @@ void ch_sch_prio_insert(ch_queue_t *qp, ch_queue_t *tp) {
 
   ch_queue_t *cp = qp;
   do {
-    cp = cp->next;
+    ch_queue_t *next = cp->next;
+
+    /* Safety checks.*/
+    chSftValidateDataPointerX(3, next);
+    chSftAssert(2, next->prev == cp, "link back");
+
+    cp = next;
   } while ((cp != qp) &&
            (threadref(cp)->hdr.pqueue.prio >= threadref(tp)->hdr.pqueue.prio));
   tp->next       = cp;
@@ -316,7 +322,7 @@ void chSchGoSleepS(tstate_t newstate) {
 
 #if CH_CFG_TIME_QUANTUM > 0
   /* The thread is renouncing its remaining time slices so it will have a new
-     time quantum when it will wakeup.*/
+     time quantum when it wakes up.*/
   otp->ticks = (tslices_t)CH_CFG_TIME_QUANTUM;
 #endif
 
@@ -349,7 +355,6 @@ void chSchGoSleepS(tstate_t newstate) {
  *                        state, this is equivalent to invoking
  *                        @p chSchGoSleepS() but, of course, less efficient.
  *                      - @a TIME_IMMEDIATE this value is not allowed.
- *                      .
  * @return              The wakeup message.
  * @retval MSG_TIMEOUT  if a timeout occurs.
  *
@@ -418,7 +423,7 @@ void chSchWakeupS(thread_t *ntp, msg_t msg) {
 #endif
 
   /* If the woken thread has a not-greater priority than the current
-     one then it is just inserted in the ready list else it made
+     one then it is just inserted in the ready list else it is made
      running immediately and the invoking thread goes in the ready
      list instead.
      Note, we are favoring the path where the woken thread has higher

@@ -46,6 +46,20 @@
 /* Module local functions.                                                   */
 /*===========================================================================*/
 
+#if (PORT_MPU_INITIALIZE == TRUE) || defined(__DOXYGEN__)
+static void port_init_regions(const uint32_t *src, volatile uint32_t *dst) {
+
+  *dst++ = *src++;
+  *dst++ = *src++;
+  *dst++ = *src++;
+  *dst++ = *src++;
+  *dst++ = *src++;
+  *dst++ = *src++;
+  *dst++ = *src++;
+  *dst++ = *src++;
+}
+#endif
+
 /*===========================================================================*/
 /* Module interrupt handlers.                                                */
 /*===========================================================================*/
@@ -64,46 +78,28 @@ CC_NO_INLINE void port_syslock_noinline(void) {
 
 CC_NO_INLINE uint32_t port_get_s_psp(void) {
 
-  return (uint32_t)__sch_get_currthread()->ctx.syscall.s_psp;
+  return (uint32_t)__sch_get_currthread()->waend;
 }
 
-CC_WEAK void port_syscall(struct port_extctx *ctxp, uint32_t n) {
+CC_WEAK void __port_do_fastcall_entry(uint32_t n, struct port_extctx *ectxp) {
 
-  (void)ctxp;
+  (void)ectxp;
+  (void)n;
+
+  chSysHalt("unimplemented fastcall");
+}
+
+CC_WEAK void __port_do_syscall_entry(uint32_t n, struct port_extctx *ectxp) {
+
+  (void)ectxp;
   (void)n;
 
   chSysHalt("unimplemented syscall");
 }
 
-CC_WEAK void __port_do_syscall_entry(uint32_t n) {
-  thread_t *tp = __sch_get_currthread();
-  struct port_extctx *ectxp, *newctxp;
-  uint32_t u_psp;
-
-  /* Caller context in unprivileged memory.*/
-  u_psp = __get_PSP();
-  tp->ctx.syscall.u_psp = u_psp;
-  ectxp = (struct port_extctx *)u_psp;
-
-  /* Return context for change in privileged mode.*/
-  newctxp = ((struct port_extctx *)tp->ctx.syscall.s_psp) - 1;
-
-  /* Creating context for return in privileged mode.*/
-  newctxp->r0     = (uint32_t)ectxp;
-  newctxp->r1     = n;
-  newctxp->pc     = (uint32_t)port_syscall;
-  newctxp->xpsr   = 0x01000000U;
-#if CORTEX_USE_FPU == TRUE
-  newctxp->fpscr  = FPU->FPDSCR;
-#endif
-
-  /* Switching PSP to the privileged mode PSP.*/
-  __set_PSP((uint32_t)newctxp);
-}
-
 CC_WEAK void __port_do_syscall_return(void) {
 
-  __set_PSP(__sch_get_currthread()->ctx.syscall.u_psp);
+  chSysHalt("unimplemented syscall return");
 }
 #endif /* PORT_USE_SYSCALL == TRUE */
 
@@ -164,8 +160,34 @@ void port_init(os_instance_t *oip) {
   /* Starting in a known IRQ configuration.*/
   port_suspend();
 
+#if CORTEX_USE_FPU == TRUE
+  {
+    uint32_t control;
+
+    /* Making sure to use the correct settings for FPU-related exception
+       handling, better do not rely on startup settings.*/
+    FPU->FPDSCR = 0U;
+    __set_FPSCR(0U);
+#if PORT_USE_FPU_FAST_SWITCHING == 0
+    /* No lazy context saving, always long exception context.*/
+    control = CONTROL_FPCA_Msk | CONTROL_SPSEL_Msk;
+    FPU->FPCCR = FPU_FPCCR_ASPEN_Msk;
+#elif PORT_USE_FPU_FAST_SWITCHING == 1
+    /* Lazy context saving enabled, always long exception context.*/
+    control = CONTROL_FPCA_Msk | CONTROL_SPSEL_Msk;
+    FPU->FPCCR = FPU_FPCCR_ASPEN_Msk | FPU_FPCCR_LSPEN_Msk;
+#else /*PORT_USE_FPU_FAST_SWITCHING >= 2 */
+    /* Lazy context saving enabled, automatic FPCA control.*/
+    control = CONTROL_SPSEL_Msk;
+    FPU->FPCCR = FPU_FPCCR_ASPEN_Msk | FPU_FPCCR_LSPEN_Msk;
+#endif
+    __set_CONTROL(control);
+    __ISB();
+  }
+#endif /* CORTEX_USE_FPU == TRUE */
+
   /* Initializing priority grouping.*/
-  NVIC_SetPriorityGrouping(CORTEX_PRIGROUP_INIT);
+  NVIC_SetPriorityGrouping(PORT_PRIGROUP_INIT);
 
   /* DWT cycle counter enable.*/
   CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
@@ -174,13 +196,36 @@ void port_init(os_instance_t *oip) {
 #endif
   DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
 
+#if defined(port_smp_init)
+  port_smp_init(oip);
+#endif
+
   /* Initialization of the system vectors used by the port.*/
   NVIC_SetPriority(SVCall_IRQn, CORTEX_PRIORITY_SVCALL);
   NVIC_SetPriority(PendSV_IRQn, CORTEX_PRIORITY_PENDSV);
 
+#if PORT_MPU_INITIALIZE == TRUE
+  /* MPU initialization as specified in port options.*/
+  {
+    static const uint32_t regs0[]  = {PORT_MPU_RBAR0_INIT | MPU_REGION_0, PORT_MPU_RASR0_INIT,
+                                      PORT_MPU_RBAR1_INIT | MPU_REGION_1, PORT_MPU_RASR1_INIT,
+                                      PORT_MPU_RBAR2_INIT | MPU_REGION_2, PORT_MPU_RASR2_INIT,
+                                      PORT_MPU_RBAR3_INIT | MPU_REGION_3, PORT_MPU_RASR3_INIT};
+    port_init_regions(regs0, &MPU->RBAR);
+
+#if CORTEX_MPU_REGIONS > 4
+    static const uint32_t regs4[]  = {PORT_MPU_RBAR4_INIT | MPU_REGION_4, PORT_MPU_RASR4_INIT,
+                                      PORT_MPU_RBAR5_INIT | MPU_REGION_5, PORT_MPU_RASR5_INIT,
+                                      PORT_MPU_RBAR6_INIT | MPU_REGION_6, PORT_MPU_RASR6_INIT,
+                                      PORT_MPU_RBAR7_INIT | MPU_REGION_7, PORT_MPU_RASR7_INIT};
+    port_init_regions(regs4, &MPU->RBAR);
+#endif
+  }
+#endif
+
 #if PORT_ENABLE_GUARD_PAGES == TRUE
   {
-    extern stkalign_t __main_thread_stack_base__;
+    extern stkline_t __main_thread_stack_base__;
 
     /* Setting up the guard page on the main() function stack base
        initially.*/
@@ -193,7 +238,8 @@ void port_init(os_instance_t *oip) {
   }
 #endif
 
-#if (PORT_ENABLE_GUARD_PAGES == TRUE) || (PORT_USE_SYSCALL == TRUE)
+#if (PORT_MPU_INITIALIZE == TRUE) || (PORT_SWITCHED_REGIONS_NUMBER > 0) ||  \
+    (PORT_ENABLE_GUARD_PAGES == TRUE)
   /* MPU is enabled.*/
   mpuEnable(MPU_CTRL_PRIVDEFENA);
 #endif

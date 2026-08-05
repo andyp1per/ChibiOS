@@ -87,14 +87,20 @@
 #define PORT_NATURAL_ALIGN              sizeof (void *)
 
 /**
- * @brief   Stack alignment constant.
- * @note    It is the alignment required for the stack pointer.
+ * @brief   Stack initial alignment constant.
+ * @note    It is the alignment required for the initial stack pointer,
+ *          must be a multiple of sizeof (port_stkline_t).
+ * @note    It is set to 32 in this architecture in order to have stacks
+ *          initially aligned with cache lines.
  */
 #define PORT_STACK_ALIGN                32U
 
 /**
  * @brief   Working Areas alignment constant.
- * @note    It is the alignment to be enforced for thread working areas.
+ * @note    It is the alignment to be enforced for thread working areas,
+ *          must be a multiple of sizeof (port_stkline_t).
+ * @note    It is set to 32 in this architecture in order to have working
+ *          areas aligned with cache lines and MPU guard pages.
  */
 #define PORT_WORKING_AREA_ALIGN         32U
 /** @} */
@@ -553,17 +559,6 @@ struct port_context {
 #define PORT_WA_SIZE(n) (PORT_CONTEXT_RESERVED_SIZE +                       \
                          (size_t)(n) +                                      \
                          (size_t)PORT_INT_REQUIRED_STACK)
-
-/**
- * @brief   Static working area allocation.
- * @details This macro is used to allocate a static thread working area
- *          aligned as both position and size.
- *
- * @param[in] s         the name to be assigned to the stack array
- * @param[in] n         the stack size to be assigned to the thread
- */
-#define PORT_WORKING_AREA(s, n)                                             \
-  ALIGNED_VAR(32) stkalign_t s[THD_WORKING_AREA_SIZE(n) / sizeof (stkalign_t)]
 
 /**
  * @brief   IRQ prologue code.

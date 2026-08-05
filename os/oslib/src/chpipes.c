@@ -22,9 +22,9 @@
  * @details Byte pipes.
  *          <h2>Operation mode</h2>
  *          A pipe is an asynchronous communication mechanism.<br>
- *          Operations defined for mailboxes:
+ *          Operations defined for pipes:
  *          - <b>Write</b>: Writes a buffer of data in the pipe in FIFO order.
- *          - <b>Read</b>: A buffer of data is read from the read and removed.
+ *          - <b>Read</b>: A buffer of data is read from the pipe and removed.
  *          - <b>Reset</b>: The pipe is emptied and all the stored data
  *            is lost.
  *          .
@@ -194,9 +194,9 @@ static size_t pipe_read(pipe_t *pp, uint8_t *bp, size_t n) {
 /*===========================================================================*/
 
 /**
- * @brief   Initializes a @p mailbox_t object.
+ * @brief   Initializes a @p pipe_t object.
  *
- * @param[out] pp       the pointer to the @p pipe_t structure to be
+ * @param[out] pp       the pointer to the @p pipe_t object to be
  *                      initialized
  * @param[in] buf       pointer to the pipe buffer as an array of @p uint8_t
  * @param[in] n         number of elements in the buffer array
@@ -225,10 +225,10 @@ void chPipeObjectInit(pipe_t *pp, uint8_t *buf, size_t n) {
  * @details All the waiting threads are resumed with status @p MSG_RESET and
  *          the queued data is lost.
  * @post    The pipe is in reset state, all operations will fail and
- *          return @p MSG_RESET until the mailbox is enabled again using
+ *          return @p MSG_RESET until the pipe is enabled again using
  *          @p chPipeResumeX().
  *
- * @param[in] pp        the pointer to an initialized @p pipe_t object
+ * @param[in] pp        pointer to an initialized @p pipe_t object
  *
  * @api
  */
@@ -259,15 +259,14 @@ void chPipeReset(pipe_t *pp) {
  *          transferred or after the specified timeout or if the pipe has
  *          been reset.
  *
- * @param[in] pp        the pointer to an initialized @p pipe_t object
+ * @param[in] pp        pointer to an initialized @p pipe_t object
  * @param[in] bp        pointer to the data buffer
- * @param[in] n         the number of bytes to be written, the value 0 is
+ * @param[in] n         number of bytes to be written, the value 0 is
  *                      reserved
- * @param[in] timeout   the number of ticks before the operation timeouts,
+ * @param[in] timeout   number of ticks before the operation timeouts,
  *                      the following special values are allowed:
  *                      - @a TIME_IMMEDIATE immediate timeout.
  *                      - @a TIME_INFINITE no timeout.
- *                      .
  * @return              The number of bytes effectively transferred. A number
  *                      lower than @p n means that a timeout occurred or the
  *                      pipe went in reset state.
@@ -324,15 +323,14 @@ size_t chPipeWriteTimeout(pipe_t *pp, const uint8_t *bp,
  *          transferred or after the specified timeout or if the pipe has
  *          been reset.
  *
- * @param[in] pp        the pointer to an initialized @p pipe_t object
+ * @param[in] pp        pointer to an initialized @p pipe_t object
  * @param[out] bp       pointer to the data buffer
- * @param[in] n         the number of bytes to be read, the value 0 is
+ * @param[in] n         number of bytes to be read, the value 0 is
  *                      reserved
- * @param[in] timeout   the number of ticks before the operation timeouts,
+ * @param[in] timeout   number of ticks before the operation timeouts,
  *                      the following special values are allowed:
  *                      - @a TIME_IMMEDIATE immediate timeout.
  *                      - @a TIME_INFINITE no timeout.
- *                      .
  * @return              The number of bytes effectively transferred. A number
  *                      lower than @p n means that a timeout occurred or the
  *                      pipe went in reset state.

@@ -76,7 +76,7 @@
 typedef port_rtcnt_t    rtcnt_t;            /**< Realtime counter.          */
 typedef port_rttime_t   rttime_t;           /**< Realtime accumulator.      */
 typedef port_syssts_t   syssts_t;           /**< System status word.        */
-typedef port_stkalign_t stkalign_t;         /**< Stack alignment type.      */
+typedef port_stkline_t  stkline_t;          /**< Stack alignment type.      */
 
 #if (PORT_ARCH_REGISTERS_WIDTH == 32) || defined(__DOXYGEN__)
 typedef uint8_t         tmode_t;            /**< Thread flags.              */
@@ -157,7 +157,20 @@ typedef struct ch_os_instance os_instance_t;
 #define __CH_OFFSETOF(st, m)                                                \
   /*lint -save -e9005 -e9033 -e413 [11.8, 10.8, 1.3] Normal pointers
     arithmetic, it is safe.*/                                               \
-  ((size_t)((char *)&((st *)0)->m - (char *)0))                             \
+  ((size_t)((char *)(void *)&((st *)0)->m - (char *)0))                     \
+  /*lint -restore*/
+
+/**
+ * @brief Get the address of structured type from a member
+ *
+ * @param[in] p         address of the member
+ * @param[in] st        structured type name
+ * @param[in] m         field name in the structured type
+ * @return              The structure address.
+ */
+#define __CH_OWNEROF(p, st, m)                                              \
+  /*lint -save -e413 [1.3] Safe to subtract a calculated offset.*/          \
+  (st *)(void *)((char *)(void *)p - __CH_OFFSETOF(st, m))
   /*lint -restore*/
 
 /**

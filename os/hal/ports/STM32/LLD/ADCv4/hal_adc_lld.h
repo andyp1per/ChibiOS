@@ -362,9 +362,11 @@
 #endif
 
 /* Check the assignment of DMA stream for ADC3.*/
-#if STM32_ADC_USE_ADC3 && !STM32_ADC_ADC3_USE_BDMA
+#if STM32_ADC_USE_ADC3
+#if !STM32_ADC_ADC3_USE_BDMA
 #if !STM32_DMA_IS_VALID_STREAM(STM32_ADC_ADC3_DMA_STREAM)
 #error "Invalid DMA channel assigned to ADC3"
+#endif
 #endif
 #endif
 

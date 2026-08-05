@@ -11,9 +11,10 @@ ifeq ($(CHCONFDIR),)
   endif
 endif
 
-CHCONF := $(strip $(shell cat $(CHCONFDIR)/chconf.h | egrep -e "\#define"))
+CHCONF := $(strip $(shell cat $(CHCONFDIR)/chconf.h | grep -E "\#define"))
 
 KERNSRC := $(CHIBIOS)/os/rt/src/chsys.c \
+           $(CHIBIOS)/os/rt/src/chsafety.c \
            $(CHIBIOS)/os/rt/src/chrfcu.c \
            $(CHIBIOS)/os/rt/src/chdebug.c \
            $(CHIBIOS)/os/rt/src/chtrace.c \
@@ -50,6 +51,7 @@ KERNSRC += $(CHIBIOS)/os/rt/src/chdynamic.c
 endif
 else
 KERNSRC := $(CHIBIOS)/os/rt/src/chsys.c \
+           $(CHIBIOS)/os/rt/src/chsafety.c \
            $(CHIBIOS)/os/rt/src/chrfcu.c \
            $(CHIBIOS)/os/rt/src/chdebug.c \
            $(CHIBIOS)/os/rt/src/chtrace.c \

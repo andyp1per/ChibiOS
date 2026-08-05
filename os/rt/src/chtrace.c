@@ -50,6 +50,14 @@
 #if (CH_DBG_TRACE_MASK != CH_DBG_TRACE_MASK_DISABLED) || defined(__DOXYGEN__)
 /**
  * @brief   Writes a time stamp and increases the trace buffer pointer.
+ * @note    The @p NOINLINE attribute is intentional and load-bearing.
+ *          Callers write the event-specific fields into the current slot
+ *          before calling this function to stamp @p time/@p rtstamp and
+ *          advance @p ptr. If this function were inlined the compiler could
+ *          legally reorder those field stores past the pointer advance,
+ *          leaving a partially-written record visible to external readers.
+ *          The out-of-line call boundary acts as a compiler sequencing point
+ *          that prevents such reordering.
  *
  * @notapi
  */
@@ -57,9 +65,9 @@ NOINLINE static void trace_next(os_instance_t *oip) {
 
   oip->trace_buffer.ptr->time    = chVTGetSystemTimeX();
 #if PORT_SUPPORTS_RT == TRUE
-  oip->trace_buffer.ptr->rtstamp = chSysGetRealtimeCounterX();
+  oip->trace_buffer.ptr->rtstamp = (uint32_t)chSysGetRealtimeCounterX();
 #else
-  oip->trace_buffer.ptr->rtstamp = (rtcnt_t)0;
+  oip->trace_buffer.ptr->rtstamp = (uint32_t)0;
 #endif
 
   /* Trace hook, useful in order to interface debug tools.*/

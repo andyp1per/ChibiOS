@@ -104,12 +104,15 @@ __port_thread_start:
 #if CH_DBG_STATISTICS
                 bl      __stats_stop_measure_crit_thd
 #endif
+#if CH_CFG_SMP_MODE == TRUE
+                bl      __port_spinlock_release
+#endif
                 cpsie   i
                 mov     r0, r5
                 blx     r4
                 movs    r0, #0              /* MSG_OK */
                 bl      chThdExit
-.zombies:       b       .zombies
+1:              b       1b
 
 /*--------------------------------------------------------------------------*
  * Post-IRQ switch code.
@@ -134,21 +137,20 @@ __port_switch_from_isr:
 #endif
                 .globl  __port_exit_from_isr
 __port_exit_from_isr:
-                ldr     r2, .L2
-                ldr     r3, .L3
+                ldr     r2, =SCB_ICSR
+#if CORTEX_ALTERNATE_SWITCH
+                ldr     r3, =ICSR_PENDSVSET
+#else
+                ldr     r3, =ICSR_NMIPENDSET
+#endif
                 str     r3, [r2, #0]
 #if CORTEX_ALTERNATE_SWITCH
+#if CH_CFG_SMP_MODE == TRUE
+                bl      __port_spinlock_release
+#endif
                 cpsie   i
 #endif
-.L1:            b       .L1
-
-                .align  2
-.L2:            .word   SCB_ICSR
-#if CORTEX_ALTERNATE_SWITCH
-.L3:            .word   ICSR_PENDSVSET
-#else
-.L3:            .word   ICSR_NMIPENDSET
-#endif
+1:              b       1b
 
 #endif /* !defined(__DOXYGEN__) */
 

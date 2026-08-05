@@ -43,13 +43,21 @@
 #error "invalid configuration file"
 #endif
 
-#if !defined(_CHIBIOS_RT_CONF_VER_7_0_)
+#if !defined(_CHIBIOS_RT_CONF_VER_8_0_)
 #error "obsolete or unknown configuration file"
 #endif
 
 /* System checks.*/
 #if !defined(CH_CFG_SMP_MODE)
 #error "CH_CFG_SMP_MODE not defined in chconf.h"
+#endif
+
+#if !defined(CH_CFG_HARDENING_LEVEL)
+#error "CH_CFG_HARDENING_LEVEL not defined in chconf.h"
+#endif
+
+#if (CH_CFG_HARDENING_LEVEL < 0) || (CH_CFG_HARDENING_LEVEL > 3)
+#error "invalid CH_CFG_HARDENING_LEVEL value in chconf.h"
 #endif
 
 /* System timers checks.*/
@@ -256,6 +264,10 @@
 
 #if !defined(CH_CFG_RUNTIME_FAULTS_HOOK)
 #error "CH_CFG_RUNTIME_FAULTS_HOOK not defined in chconf.h"
+#endif
+
+#if !defined(CH_CFG_SAFETY_CHECK_HOOK)
+#error "CH_CFG_SAFETY_CHECK_HOOK not defined in chconf.h"
 #endif
 
 /*===========================================================================*/

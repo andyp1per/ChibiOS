@@ -123,7 +123,67 @@ struct ch_delta_list {
  * @param[in] name      the name of the queue variable
  */
 #define CH_QUEUE_DECL(name)                                                 \
-    ch_queue_t name = __CH_QUEUE_DATA(name)
+  ch_queue_t name = __CH_QUEUE_DATA(name)
+
+/**
+ * @brief   Iterate over a queue list forwards
+ *
+ * @param[in] pos       pointer to @p ch_queue_t object to use as a loop cursor
+ * @param[in] head      pointer to @p ch_queue_t head of queue
+ *
+ * @notapi
+ */
+#define ch_queue_for_each(pos, head)                                        \
+  for (pos = (head)->next; pos != (head); pos = pos->next)
+
+/**
+ * @brief   Iterate over a queue list backwards
+ *
+ * @param[in] pos       pointer to @p ch_queue_t object to use as a loop cursor
+ * @param[in] head      pointer to @p ch_queue_t head of queue
+ *
+ * @notapi
+ */
+#define ch_queue_for_each_reverse(pos, head)                                \
+  for (pos = (head)->prev; pos != (head); pos = pos->prev)
+
+/**
+ * @brief   Get the enclosing object of a queue object
+ *
+ * @param[in] ptr       pointer to the member @p ch_queue_t object
+ * @param[in] type      the type of the enclosing object
+ * @param[in] member    the name of the @p ch_queue_t object
+ *
+ * @notapi
+ */
+#define ch_queue_get_owner(ptr, type, member)                               \
+  __CH_OWNEROF(ptr, type, member)
+
+/**
+ * @brief   Get the first entry of a queue
+ * @note    The queue is assumed to be not empty
+ *
+ * @param[in] head      pointer to @p ch_queue_t head of queue
+ * @param[in] type      the type of the enclosing object
+ * @param[in] member    the name of the @p ch_queue_t object
+ *
+ * @notapi
+ */
+#define ch_queue_first_owner(head, type, member)                            \
+  __CH_OWNEROF((head)->next, type, member)
+
+/**
+ * @brief   Get the last entry of a queue
+ * @note    The queue is assumed to be not empty
+ *
+ * @param[in] head      pointer to @p ch_queue_t head of queue
+ * @param[in] type      the type of the enclosing object
+ * @param[in] member    the name of the @p ch_queue_t object
+ *
+ * @notapi
+ */
+#define ch_queue_last_owner(head, type, member)                             \
+  __CH_OWNEROF((head)->prev, type, member)
 
 /*===========================================================================*/
 /* External declarations.                                                    */
@@ -205,6 +265,8 @@ static inline void ch_list_link(ch_list_t *lp, ch_list_t *p) {
  */
 static inline ch_list_t *ch_list_unlink(ch_list_t *lp) {
 
+  chDbgAssert(ch_list_notempty(lp), "empty list");
+
   ch_list_t *p = lp->next;
   lp->next = p->next;
 
@@ -277,6 +339,9 @@ static inline void ch_queue_insert(ch_queue_t *qp, ch_queue_t *p) {
  * @notapi
  */
 static inline ch_queue_t *ch_queue_fifo_remove(ch_queue_t *qp) {
+
+  chDbgAssert(ch_queue_notempty(qp), "empty queue");
+
   ch_queue_t *p = qp->next;
 
   qp->next       = p->next;
@@ -374,7 +439,13 @@ static inline ch_priority_queue_t *ch_pqueue_insert_behind(ch_priority_queue_t *
 
   /* Scanning priority queue, the list is assumed to be mostly empty.*/
   do {
-    pqp = pqp->next;
+    ch_priority_queue_t *next = pqp->next;
+
+    /* Safety checks.*/
+    chSftValidateDataPointerX(3, next);
+    chSftAssert(2, next->prev == pqp, "link back");
+
+    pqp = next;
   } while (unlikely(pqp->prio >= p->prio));
 
   /* Insertion on prev.*/
@@ -391,6 +462,10 @@ static inline ch_priority_queue_t *ch_pqueue_insert_behind(ch_priority_queue_t *
  *          its peers.
  * @details The element is positioned ahead of all elements with higher or
  *          equal priority.
+ * @note    At hardening level 2 the back-link is checked while traversing
+ *          the list.
+ * @note    At hardening level 3 the forward link is verified before
+ *          de-referencing it while traversing the list.
  *
  * @param[in] pqp       the pointer to the priority queue list header
  * @param[in] p         the pointer to the element to be inserted in the queue
@@ -403,7 +478,13 @@ static inline ch_priority_queue_t *ch_pqueue_insert_ahead(ch_priority_queue_t *p
 
   /* Scanning priority queue, the list is assumed to be mostly empty.*/
   do {
-    pqp = pqp->next;
+    ch_priority_queue_t *next = pqp->next;
+
+    /* Safety checks.*/
+    chSftValidateDataPointerX(3, next);
+    chSftAssert(2, next->prev == pqp, "link back");
+
+    pqp = next;
   } while (unlikely(pqp->prio > p->prio));
 
   /* Insertion on prev.*/
@@ -578,6 +659,15 @@ static inline ch_delta_list_t *ch_dlist_remove_first(ch_delta_list_t *dlhp) {
 
 /**
  * @brief   Dequeues an element from the delta list.
+ * @note    This function only unlinks the element; it does NOT adjust the
+ *          successor's @p delta field. The caller is responsible for adding
+ *          @p dlp->delta to @p dlp->next->delta to preserve the cumulative
+ *          time invariant of the delta list, unless the removal context makes
+ *          such an adjustment unnecessary (e.g. the element is being fired and
+ *          @p lasttime is being stepped forward by @p dlp->delta instead).
+ * @note    The @p dlp->next pointer is intentionally left intact after the
+ *          unlink so that callers can still read the old successor through
+ *          @p dlp->next when performing the delta adjustment after the call.
  *
  * @param[in] dlp       pointer to the delta list element
  *

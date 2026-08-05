@@ -54,6 +54,8 @@
  * @{
  */
 
+#include <string.h>
+
 #include "ch.h"
 
 #if (CH_CFG_USE_SEMAPHORES == TRUE) || defined(__DOXYGEN__)
@@ -87,7 +89,7 @@
 /**
  * @brief   Initializes a semaphore with the specified counter value.
  *
- * @param[out] sp       pointer to a @p semaphore_t structure
+ * @param[out] sp       pointer to a @p semaphore_t object
  * @param[in] n         initial value of the semaphore counter. Must be
  *                      non-negative.
  *
@@ -102,12 +104,41 @@ void chSemObjectInit(semaphore_t *sp, cnt_t n) {
 }
 
 /**
+ * @brief   Disposes a semaphore.
+ * @note    Objects disposing does not involve freeing memory but just
+ *          performing checks that make sure that the object is in a
+ *          state compatible with operations stop.
+ * @note    If the option @p CH_CFG_HARDENING_LEVEL is greater than zero then
+ *          the object is also cleared, attempts to use the object would likely
+ *          result in a clean memory access violation because dereferencing
+ *          of @p NULL pointers rather than dereferencing previously valid
+ *          pointers.
+ *
+ * @param[in] sp        pointer to a @p semaphore_t object
+ *
+ * @dispose
+ */
+void chSemObjectDispose(semaphore_t *sp) {
+
+  chDbgCheck(sp != NULL);
+
+  chSftCheckQueueX(&sp->queue);
+
+  chDbgAssert(ch_queue_isempty(&sp->queue) && (sp->cnt >= (cnt_t)0),
+              "object in use");
+
+#if CH_CFG_HARDENING_LEVEL > 0
+  memset((void *)sp, 0, sizeof (semaphore_t));
+#endif
+}
+
+/**
  * @brief   Performs a reset operation on the semaphore.
  * @post    After invoking this function all the threads waiting on the
  *          semaphore, if any, are released and the semaphore counter is set
  *          to the specified, non negative, value.
  *
- * @param[in] sp        pointer to a @p semaphore_t structure
+ * @param[in] sp        pointer to a @p semaphore_t object
  * @param[in] n         the new value of the semaphore counter. The value must
  *                      be non-negative.
  * @param[in] msg       message to be sent
@@ -132,7 +163,7 @@ void chSemResetWithMessage(semaphore_t *sp, cnt_t n, msg_t msg) {
  *          interrupt handlers always reschedule on exit so an explicit
  *          reschedule must not be performed in ISRs.
  *
- * @param[in] sp        pointer to a @p semaphore_t structure
+ * @param[in] sp        pointer to a @p semaphore_t object
  * @param[in] n         the new value of the semaphore counter. The value must
  *                      be non-negative.
  * @param[in] msg       message to be sent
@@ -156,7 +187,7 @@ void chSemResetWithMessageI(semaphore_t *sp, cnt_t n, msg_t msg) {
 /**
  * @brief   Performs a wait operation on a semaphore.
  *
- * @param[in] sp        pointer to a @p semaphore_t structure
+ * @param[in] sp        pointer to a @p semaphore_t object
  * @return              A message specifying how the invoking thread has been
  *                      released from the semaphore.
  * @retval MSG_OK       if the thread has not stopped on the semaphore or the
@@ -178,7 +209,7 @@ msg_t chSemWait(semaphore_t *sp) {
 /**
  * @brief   Performs a wait operation on a semaphore.
  *
- * @param[in] sp        pointer to a @p semaphore_t structure
+ * @param[in] sp        pointer to a @p semaphore_t object
  * @return              A message specifying how the invoking thread has been
  *                      released from the semaphore.
  * @retval MSG_OK       if the thread has not stopped on the semaphore or the
@@ -210,12 +241,11 @@ msg_t chSemWaitS(semaphore_t *sp) {
 /**
  * @brief   Performs a wait operation on a semaphore with timeout specification.
  *
- * @param[in] sp        pointer to a @p semaphore_t structure
+ * @param[in] sp        pointer to a @p semaphore_t object
  * @param[in] timeout   the number of ticks before the operation timeouts,
  *                      the following special values are allowed:
  *                      - @a TIME_IMMEDIATE immediate timeout.
  *                      - @a TIME_INFINITE no timeout.
- *                      .
  * @return              A message specifying how the invoking thread has been
  *                      released from the semaphore.
  * @retval MSG_OK       if the thread has not stopped on the semaphore or the
@@ -239,12 +269,11 @@ msg_t chSemWaitTimeout(semaphore_t *sp, sysinterval_t timeout) {
 /**
  * @brief   Performs a wait operation on a semaphore with timeout specification.
  *
- * @param[in] sp        pointer to a @p semaphore_t structure
+ * @param[in] sp        pointer to a @p semaphore_t object
  * @param[in] timeout   the number of ticks before the operation timeouts,
  *                      the following special values are allowed:
  *                      - @a TIME_IMMEDIATE immediate timeout.
  *                      - @a TIME_INFINITE no timeout.
- *                      .
  * @return              A message specifying how the invoking thread has been
  *                      released from the semaphore.
  * @retval MSG_OK       if the thread has not stopped on the semaphore or the
@@ -282,7 +311,7 @@ msg_t chSemWaitTimeoutS(semaphore_t *sp, sysinterval_t timeout) {
 /**
  * @brief   Performs a signal operation on a semaphore.
  *
- * @param[in] sp        pointer to a @p semaphore_t structure
+ * @param[in] sp        pointer to a @p semaphore_t object
  *
  * @api
  */
@@ -307,7 +336,7 @@ void chSemSignal(semaphore_t *sp) {
  *          interrupt handlers always reschedule on exit so an explicit
  *          reschedule must not be performed in ISRs.
  *
- * @param[in] sp    pointer to a @p semaphore_t structure
+ * @param[in] sp    pointer to a @p semaphore_t object
  *
  * @iclass
  */
@@ -335,7 +364,7 @@ void chSemSignalI(semaphore_t *sp) {
  *          interrupt handlers always reschedule on exit so an explicit
  *          reschedule must not be performed in ISRs.
  *
- * @param[in] sp        pointer to a @p semaphore_t structure
+ * @param[in] sp        pointer to a @p semaphore_t object
  * @param[in] n         value to be added to the semaphore counter. The value
  *                      must be positive.
  *
@@ -360,8 +389,8 @@ void chSemAddCounterI(semaphore_t *sp, cnt_t n) {
 /**
  * @brief   Performs atomic signal and wait operations on two semaphores.
  *
- * @param[in] sps       pointer to a @p semaphore_t structure to be signaled
- * @param[in] spw       pointer to a @p semaphore_t structure to wait on
+ * @param[in] sps       pointer to a @p semaphore_t object to be signaled
+ * @param[in] spw       pointer to a @p semaphore_t object to wait on
  * @return              A message specifying how the invoking thread has been
  *                      released from the semaphore.
  * @retval MSG_OK       if the thread has not stopped on the semaphore or the
