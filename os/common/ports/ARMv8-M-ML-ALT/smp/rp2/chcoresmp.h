@@ -88,6 +88,20 @@
 #define PORT_MEM_LOCAL_BSS1             CC_SECTION(".ram5_clear.core1")
 #endif
 
+/**
+ * @brief   Core zero BSS section, RT name for the same scratch bank.
+ */
+#if !defined(PORT_CORE0_BSS_SECTION)
+#define PORT_CORE0_BSS_SECTION          PORT_MEM_LOCAL_COHERENT_BSS0
+#endif
+
+/**
+ * @brief   Core one BSS section, RT name for the same scratch bank.
+ */
+#if !defined(PORT_CORE1_BSS_SECTION)
+#define PORT_CORE1_BSS_SECTION          PORT_MEM_LOCAL_COHERENT_BSS1
+#endif
+
 /*===========================================================================*/
 /* Derived constants and error checks.                                       */
 /*===========================================================================*/

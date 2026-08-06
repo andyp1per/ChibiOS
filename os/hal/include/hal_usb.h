@@ -247,8 +247,8 @@
 
 /**
  * @brief   Moves EP0 request handling to thread context.
- * @note    When enabled the legacy requests hook callback is not available
- *          and the application must provide a dedicated EP0 worker thread.
+ * @note    Not implemented, the RP USB LLD tests this switch so it needs a
+ *          defined default.
  */
 #if !defined(USB_USE_EP0_THREAD) || defined(__DOXYGEN__)
 #define USB_USE_EP0_THREAD                  FALSE
@@ -359,7 +359,6 @@ typedef void (*usbepcallback_t)(USBDriver *usbp, usbep_t ep);
  */
 typedef void (*usbeventcb_t)(USBDriver *usbp, usbevent_t event);
 
-#if (USB_USE_EP0_THREAD == FALSE) || defined(__DOXYGEN__)
 /**
  * @brief   Type of a requests handler callback.
  * @details The request is encoded in the @p usb_setup buffer.
@@ -371,7 +370,6 @@ typedef void (*usbeventcb_t)(USBDriver *usbp, usbevent_t event);
  * @retval true         Request handled.
  */
 typedef bool (*usbreqhandler_t)(USBDriver *usbp);
-#endif
 
 /**
  * @brief   Type of an USB descriptor-retrieving callback.
@@ -641,17 +639,6 @@ extern "C" {
   void usbObjectInit(USBDriver *usbp);
   msg_t usbStart(USBDriver *usbp, const USBConfig *config);
   void usbStop(USBDriver *usbp);
-#if (USB_USE_EP0_THREAD == TRUE) || defined(__DOXYGEN__)
-  void usbInitEndpoint(USBDriver *usbp, usbep_t ep,
-                       const USBEndpointConfig *epcp);
-  void usbDisableEndpoints(USBDriver *usbp);
-  msg_t usbEp0WaitSetup(USBDriver *usbp);
-  msg_t usbEp0HandleStandardRequest(USBDriver *usbp, bool *handledp);
-  msg_t usbEp0Receive(USBDriver *usbp, uint8_t *buf, size_t n);
-  msg_t usbEp0Reply(USBDriver *usbp, const uint8_t *buf, size_t n);
-  msg_t usbEp0Acknowledge(USBDriver *usbp);
-  void usbEp0Stall(USBDriver *usbp);
-#endif
   void usbInitEndpointI(USBDriver *usbp, usbep_t ep,
                         const USBEndpointConfig *epcp);
   void usbDisableEndpointsI(USBDriver *usbp);
