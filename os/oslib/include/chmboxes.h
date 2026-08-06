@@ -50,9 +50,9 @@
  */
 typedef struct {
   msg_t                 *buffer;        /**< @brief Pointer to the mailbox
-                                                    buffer base.            */
-  msg_t                 *top;           /**< @brief Pointer to the mailbox
-                                                    buffer top..            */
+                                                    buffer.                 */
+  msg_t                 *top;           /**< @brief Pointer to the location
+                                                    after the buffer.       */
   msg_t                 *wrptr;         /**< @brief Write pointer.          */
   msg_t                 *rdptr;         /**< @brief Read pointer.           */
   size_t                cnt;            /**< @brief Messages in queue.      */
@@ -105,7 +105,6 @@ typedef struct {
 extern "C" {
 #endif
   void chMBObjectInit(mailbox_t *mbp, msg_t *buf, size_t n);
-  void chMBObjectDispose(mailbox_t *mbp);
   void chMBReset(mailbox_t *mbp);
   void chMBResetI(mailbox_t *mbp);
   msg_t chMBPostTimeout(mailbox_t *mbp, msg_t msg, sysinterval_t timeout);

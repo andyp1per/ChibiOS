@@ -126,7 +126,7 @@ extern "C" {
 /**
  * @brief   Initializes a jobs queue object.
  *
- * @param[out] jqp      pointer to a @p jobs_queue_t object
+ * @param[out] jqp      pointer to a @p jobs_queue_t structure
  * @param[in] jobsn     number of jobs available
  * @param[in] jobsbuf   pointer to the buffer of jobs, it must be able
  *                      to hold @p jobsn @p job_descriptor_t structures
@@ -148,32 +148,9 @@ static inline void chJobObjectInit(jobs_queue_t *jqp,
 }
 
 /**
- * @brief   Disposes a jobs queue object.
- * @note    Objects disposing does not involve freeing memory but just
- *          performing checks that make sure that the object is in a
- *          state compatible with operations stop.
- * @note    If the option @p CH_CFG_HARDENING_LEVEL is greater than zero then
- *          the object is also cleared, attempts to use the object would likely
- *          result in a clean memory access violation because dereferencing
- *          of @p NULL pointers rather than dereferencing previously valid
- *          pointers.
- *
- * @param[in] jqp       pointer to a @p jobs_queue_t object
- *
- * @dispose
- */
-static inline void chJobObjectDispose(jobs_queue_t *jqp) {
-
-  chDbgCheck(jqp != NULL);
-
-  chGuardedPoolObjectDispose(&jqp->free);
-  chMBObjectDispose(&jqp->mbx);
-}
-
-/**
  * @brief   Allocates a free job object.
  *
- * @param[in] jqp       pointer to a @p jobs_queue_t object
+ * @param[in] jqp       pointer to a @p jobs_queue_t structure
  * @return              The pointer to the allocated job object.
  *
  * @api
@@ -186,7 +163,7 @@ static inline job_descriptor_t *chJobGet(jobs_queue_t *jqp) {
 /**
  * @brief   Allocates a free job object.
  *
- * @param[in] jqp       pointer to a @p jobs_queue_t object
+ * @param[in] jqp       pointer to a @p jobs_queue_t structure
  * @return              The pointer to the allocated job object.
  * @retval NULL         if a job object is not immediately available.
  *
@@ -200,11 +177,12 @@ static inline job_descriptor_t *chJobGetI(jobs_queue_t *jqp) {
 /**
  * @brief   Allocates a free job object.
  *
- * @param[in] jqp       pointer to a @p jobs_queue_t object
+ * @param[in] jqp       pointer to a @p jobs_queue_t structure
  * @param[in] timeout   the number of ticks before the operation timeouts,
  *                      the following special values are allowed:
  *                      - @a TIME_IMMEDIATE immediate timeout.
  *                      - @a TIME_INFINITE no timeout.
+ *                      .
  * @return              The pointer to the allocated job object.
  * @retval NULL         if a job object is not available within the specified
  *                      timeout.
@@ -220,11 +198,12 @@ static inline job_descriptor_t *chJobGetTimeoutS(jobs_queue_t *jqp,
 /**
  * @brief   Allocates a free job object.
  *
- * @param[in] jqp       pointer to a @p jobs_queue_t object
+ * @param[in] jqp       pointer to a @p jobs_queue_t structure
  * @param[in] timeout   the number of ticks before the operation timeouts,
  *                      the following special values are allowed:
  *                      - @a TIME_IMMEDIATE immediate timeout.
  *                      - @a TIME_INFINITE no timeout.
+ *                      .
  * @return              The pointer to the allocated job object.
  * @retval NULL         if a job object is not available within the specified
  *                      timeout.
@@ -241,7 +220,7 @@ static inline job_descriptor_t *chJobGetTimeout(jobs_queue_t *jqp,
  * @brief   Posts a job object.
  * @note    By design the object can be always immediately posted.
  *
- * @param[in] jqp       pointer to a @p jobs_queue_t object
+ * @param[in] jqp       pointer to a @p jobs_queue_t structure
  * @param[in] jp        pointer to the job object to be posted
  *
  * @iclass
@@ -259,7 +238,7 @@ static inline void chJobPostI(jobs_queue_t *jqp, job_descriptor_t *jp) {
  * @brief   Posts a job object.
  * @note    By design the object can be always immediately posted.
  *
- * @param[in] jqp       pointer to a @p jobs_queue_t object
+ * @param[in] jqp       pointer to a @p jobs_queue_t structure
  * @param[in] jp        pointer to the job object to be posted
  *
  * @sclass
@@ -277,7 +256,7 @@ static inline void chJobPostS(jobs_queue_t *jqp, job_descriptor_t *jp) {
  * @brief   Posts a job object.
  * @note    By design the object can be always immediately posted.
  *
- * @param[in] jqp       pointer to a @p jobs_queue_t object
+ * @param[in] jqp       pointer to a @p jobs_queue_t structure
  * @param[in] jp        pointer to the job object to be posted
  *
  * @api
@@ -295,7 +274,7 @@ static inline void chJobPost(jobs_queue_t *jqp, job_descriptor_t *jp) {
  * @brief   Posts an high priority job object.
  * @note    By design the object can be always immediately posted.
  *
- * @param[in] jqp       pointer to a @p jobs_queue_t object
+ * @param[in] jqp       pointer to a @p jobs_queue_t structure
  * @param[in] jp        pointer to the job object to be posted
  *
  * @iclass
@@ -313,7 +292,7 @@ static inline void chJobPostAheadI(jobs_queue_t *jqp, job_descriptor_t *jp) {
  * @brief   Posts an high priority job object.
  * @note    By design the object can be always immediately posted.
  *
- * @param[in] jqp       pointer to a @p jobs_queue_t object
+ * @param[in] jqp       pointer to a @p jobs_queue_t structure
  * @param[in] jp        pointer to the job object to be posted
  *
  * @sclass
@@ -331,7 +310,7 @@ static inline void chJobPostAheadS(jobs_queue_t *jqp, job_descriptor_t *jp) {
  * @brief   Posts an high priority job object.
  * @note    By design the object can be always immediately posted.
  *
- * @param[in] jqp       pointer to a @p jobs_queue_t object
+ * @param[in] jqp       pointer to a @p jobs_queue_t structure
  * @param[in] jp        pointer to the job object to be posted
  *
  * @api
@@ -348,7 +327,7 @@ static inline void chJobPostAhead(jobs_queue_t *jqp, job_descriptor_t *jp) {
 /**
  * @brief   Waits for a job then executes it.
  *
- * @param[in] jqp       pointer to a @p jobs_queue_t object
+ * @param[in] jqp       pointer to a @p jobs_queue_t structure
  * @return              The function outcome.
  * @retval MSG_OK       if a job has been executed.
  * @retval MSG_RESET    if the internal mailbox has been reset.
@@ -383,11 +362,12 @@ static inline msg_t chJobDispatch(jobs_queue_t *jqp) {
 /**
  * @brief   Waits for a job then executes it.
  *
- * @param[in] jqp       pointer to a @p jobs_queue_t object
+ * @param[in] jqp       pointer to a @p jobs_queue_t structure
  * @param[in] timeout   the number of ticks before the operation timeouts,
  *                      the following special values are allowed:
  *                      - @a TIME_IMMEDIATE immediate timeout.
  *                      - @a TIME_INFINITE no timeout.
+ *                      .
  * @return              The function outcome.
  * @retval MSG_OK       if a job has been executed.
  * @retval MSG_TIMEOUT  if a timeout occurred.

@@ -69,28 +69,27 @@ typedef uint32_t oc_flags_t;
 /**
  * @brief   Type of an hash element header.
  */
-typedef struct oc_hash_element oc_hash_element_t;
+typedef struct ch_oc_hash_header oc_hash_header_t;
 
 /**
- * @brief   Type of an object element.
+ * @brief   Type of an LRU element header.
  */
-typedef struct oc_lru_element oc_lru_element_t;
+typedef struct ch_oc_lru_header oc_lru_header_t;
 
 /**
  * @brief   Type of a cached object.
  */
-typedef struct oc_object oc_object_t;
+typedef struct ch_oc_object oc_object_t;
 
 /**
  * @brief   Type of a cache object.
  */
-typedef struct objects_cache objects_cache_t;
+typedef struct ch_objects_cache objects_cache_t;
 
 /**
  * @brief   Object read function.
  *
- * @param[in] ocp       pointer to the @p objects_cache_t object
- * @param[in] objp      pointer to the @p oc_object_t object
+ * @param[in] ocp       pointer to the @p objects_cache_t structure
  * @param[in] async     requests an asynchronous operation if supported, the
  *                      function is then responsible for releasing the
  *                      object
@@ -102,8 +101,7 @@ typedef bool (*oc_readf_t)(objects_cache_t *ocp,
 /**
  * @brief   Object write function.
  *
- * @param[in] ocp       pointer to the @p objects_cache_t object
- * @param[in] objp      pointer to the @p oc_object_t object
+ * @param[in] ocp       pointer to the @p objects_cache_t structure
  * @param[in] async     requests an asynchronous operation if supported, the
  *                      function is then responsible for releasing the
  *                      object
@@ -115,47 +113,63 @@ typedef bool (*oc_writef_t)(objects_cache_t *ocp,
 /**
  * @brief   Structure representing an hash table element.
  */
-struct oc_hash_element {
+struct ch_oc_hash_header {
   /**
    * @brief   Next in the collisions list.
    */
-  oc_hash_element_t     *next;
+  oc_object_t           *hash_next;
   /**
    * @brief   Previous in the collisions list.
    */
-  oc_hash_element_t     *prev;
+  oc_object_t           *hash_prev;
 };
 
 /**
- * @brief   Structure representing an LRU list element.
+ * @brief   Structure representing an hash table element.
  */
-struct oc_lru_element {
+struct ch_oc_lru_header {
   /**
-   * @brief   Hash collision list element
+   * @brief   Next in the collisions list.
    */
-  oc_hash_element_t     h;
+  oc_object_t           *hash_next;
+  /**
+   * @brief   Previous in the collisions list.
+   */
+  oc_object_t           *hash_prev;
   /**
    * @brief   Next in the LRU list.
    */
-  oc_lru_element_t    *next;
+  oc_object_t           *lru_next;
   /**
    * @brief   Previous in the LRU list.
    */
-  oc_lru_element_t    *prev;
+  oc_object_t           *lru_prev;
 };
 
 /**
  * @brief   Structure representing a cached object.
  */
-struct oc_object {
+struct ch_oc_object {
   /**
-   * @brief   Hash and LRU links.
+   * @brief   Next in the collisions list.
    */
-  oc_lru_element_t      list;
+  oc_object_t           *hash_next;
   /**
-   * @brief   Object pointer to the owner.
+   * @brief   Previous in the collisions list.
    */
-  void                  *obj_owner;
+  oc_object_t           *hash_prev;
+  /**
+   * @brief   Next in the LRU list.
+   */
+  oc_object_t           *lru_next;
+  /**
+   * @brief   Previous in the LRU list.
+   */
+  oc_object_t           *lru_prev;
+  /**
+   * @brief   Object group.
+   */
+  uint32_t              obj_group;
   /**
    * @brief   Object key.
    */
@@ -179,7 +193,7 @@ struct oc_object {
 /**
  * @brief   Structure representing a cache object.
  */
-struct objects_cache {
+struct ch_objects_cache {
   /**
    * @brief   Number of elements in the hash table.
    */
@@ -187,7 +201,7 @@ struct objects_cache {
   /**
    * @brief   Pointer to the hash table.
    */
-  oc_hash_element_t  *hashp;
+  oc_hash_header_t      *hashp;
   /**
    * @brief   Number of elements in the objects table.
    */
@@ -203,7 +217,7 @@ struct objects_cache {
   /**
    * @brief   LRU list header.
    */
-  oc_lru_element_t      list;
+  oc_lru_header_t       lru;
   /**
    * @brief   Semaphore for LRU access.
    */
@@ -231,14 +245,14 @@ extern "C" {
 #endif
   void chCacheObjectInit(objects_cache_t *ocp,
                          ucnt_t hashn,
-                         oc_hash_element_t *hashp,
+                         oc_hash_header_t *hashp,
                          ucnt_t objn,
                          size_t objsz,
                          void *objvp,
                          oc_readf_t readf,
                          oc_writef_t writef);
   oc_object_t *chCacheGetObject(objects_cache_t *ocp,
-                                void *owner,
+                                uint32_t group,
                                 uint32_t key);
   void chCacheReleaseObjectI(objects_cache_t *ocp,
                              oc_object_t *objp);
@@ -266,8 +280,9 @@ extern "C" {
  *            the LRU tail.
  *          - @p OC_FLAG_LAZYWRITE is ignored and kept, a write will occur
  *            when the object is removed from the LRU list (lazy write).
+ *          .
  *
- * @param[in] ocp       pointer to the @p objects_cache_t object
+ * @param[in] ocp       pointer to the @p objects_cache_t structure
  * @param[in] objp      pointer to the @p oc_object_t structure
  *
  * @api

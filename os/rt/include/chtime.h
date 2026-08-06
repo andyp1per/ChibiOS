@@ -478,7 +478,6 @@ static inline time_usecs_t chTimeI2US64(sysinterval_t interval) {
 
   return (time_conv_t)usecs;
 }
-
 /**
  * @brief   Adds an interval to a system time returning a system time.
  *

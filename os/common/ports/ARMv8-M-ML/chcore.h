@@ -179,29 +179,12 @@
  *          priority with no sub-priority.
  */
 #if !defined(CORTEX_PRIGROUP_INIT) || defined(__DOXYGEN__)
-#define CORTEX_PRIGROUP_INIT            (7U - CORTEX_PRIORITY_BITS)
+#define CORTEX_PRIGROUP_INIT            (7 - CORTEX_PRIORITY_BITS)
 #endif
 
 /*===========================================================================*/
 /* Derived constants and error checks.                                       */
 /*===========================================================================*/
-
-/* Inclusion of SMP support, if enabled.*/
-#if (CH_CFG_SMP_MODE == TRUE) || defined(__DOXYGEN__)
-#if !defined(_FROM_ASM_)
-#if !defined(__CHIBIOS_RT__)
-#error "SMP is supported in RT only"
-#endif
-
-#include "chcoresmp.h"
-
-#if !defined(PORT_CORES_NUMBER)
-#error "PORT_CORES_NUMBER not defined in chcoresmp.h"
-#endif
-
-#endif
-#else /* CH_CFG_SMP_MODE != TRUE */
-#endif /* CH_CFG_SMP_MODE != TRUE */
 
 /**
  * @name    Port Capabilities and Constants
@@ -219,20 +202,14 @@
 #define PORT_NATURAL_ALIGN              sizeof (void *)
 
 /**
- * @brief   Stack initial alignment constant.
- * @note    It is the alignment required for the initial stack pointer,
- *          must be a multiple of sizeof (port_stkline_t).
- * @note    It is set to 32 in this architecture in order to have stacks
- *          initially aligned with cache lines.
+ * @brief   Stack alignment constant.
+ * @note    It is the alignment required for the stack pointer.
  */
 #define PORT_STACK_ALIGN                32U
 
 /**
  * @brief   Working Areas alignment constant.
- * @note    It is the alignment to be enforced for thread working areas,
- *          must be a multiple of sizeof (port_stkline_t).
- * @note    It is set to 32 in this architecture in order to have working
- *          areas aligned with cache lines and MPU guard pages.
+ * @note    It is the alignment to be enforced for thread working areas.
  */
 #define PORT_WORKING_AREA_ALIGN         32U
 /** @} */
@@ -468,6 +445,17 @@ struct port_context {
                          (size_t)PORT_INT_REQUIRED_STACK)
 
 /**
+ * @brief   Static working area allocation.
+ * @details This macro is used to allocate a static thread working area
+ *          aligned as both position and size.
+ *
+ * @param[in] s         the name to be assigned to the stack array
+ * @param[in] n         the stack size to be assigned to the thread
+ */
+#define PORT_WORKING_AREA(s, n)                                             \
+  ALIGNED_VAR(32) stkalign_t s[THD_WORKING_AREA_SIZE(n) / sizeof (stkalign_t)]
+
+/**
  * @brief   IRQ prologue code.
  * @details This macro must be inserted at the start of all IRQ handlers
  *          enabled to invoke system APIs.
@@ -521,7 +509,7 @@ struct port_context {
 #else
   #define port_switch(ntp, otp) do {                                        \
     struct port_intctx *r13 = (struct port_intctx *)__get_PSP();            \
-    if ((stkline_t *)(void *)(r13 - 1) < (otp)->wabase) {                   \
+    if ((stkalign_t *)(void *)(r13 - 1) < (otp)->wabase) {                  \
       chSysHalt("stack overflow");                                          \
     }                                                                       \
     __port_switch(ntp, otp);                                                \
@@ -567,11 +555,6 @@ extern "C" {
 /*===========================================================================*/
 /* Module inline functions.                                                  */
 /*===========================================================================*/
-
-/*lint -save -e718 -e746 [17.3] The MISRA parser cannot see the function
-  declarations in CMSIS headers, CMSIS parsing is disabled in those headers
-  because the whole thing is not MISRA compliant and it is not uder our
-  control.*/
 
  /**
   * @brief   Returns a word encoding the current interrupts status.
@@ -641,9 +624,6 @@ extern "C" {
  #else /* CORTEX_SIMPLIFIED_PRIORITY */
    __disable_irq();
  #endif /* CORTEX_SIMPLIFIED_PRIORITY */
- #if CH_CFG_SMP_MODE == TRUE
-   port_spinlock_take();
- #endif
  }
 
  /**
@@ -653,9 +633,6 @@ extern "C" {
   */
  __STATIC_FORCEINLINE void port_unlock(void) {
 
- #if CH_CFG_SMP_MODE == TRUE
-   port_spinlock_release();
- #endif
  #if CORTEX_SIMPLIFIED_PRIORITY == FALSE
    __set_BASEPRI(CORTEX_BASEPRI_DISABLED);
  #else /* CORTEX_SIMPLIFIED_PRIORITY */
@@ -737,7 +714,6 @@ extern "C" {
  #endif
  }
 
-#if !defined(port_rt_get_counter_value)
  /**
   * @brief   Returns the current value of the realtime counter.
   *
@@ -747,9 +723,6 @@ extern "C" {
 
    return DWT->CYCCNT;
  }
-#endif
-
- /*lint -restore*/
 
 #endif /* !defined(_FROM_ASM_) */
 
@@ -760,11 +733,7 @@ extern "C" {
 #if !defined(_FROM_ASM_)
 
 #if CH_CFG_ST_TIMEDELTA > 0
-#if (CH_CFG_SMP_MODE == TRUE) && (PORT_CORES_NUMBER > 1)
-#include "chcoresmp_timer.h"
-#else
 #include "chcore_timer.h"
-#endif
 #endif /* CH_CFG_ST_TIMEDELTA > 0 */
 
 #endif /* !defined(_FROM_ASM_) */

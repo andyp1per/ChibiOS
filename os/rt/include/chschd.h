@@ -94,8 +94,15 @@
  * @name    Thread flags and attributes
  * @{
  */
-#define CH_FLAGS_USER_MASK  (tmode_t)127U   /**< @brief Unused flags.       */
-#define CH_FLAGS_TERMINATE  (tmode_t)128U   /**< @brief Termination flag.   */
+#define CH_FLAG_MODE_MASK   (tmode_t)3U     /**< @brief Thread memory mode
+                                                 mask.                      */
+#define CH_FLAG_MODE_STATIC (tmode_t)0U     /**< @brief Static thread.      */
+#define CH_FLAG_MODE_HEAP   (tmode_t)1U     /**< @brief Thread allocated
+                                                 from a Memory Heap.        */
+#define CH_FLAG_MODE_MPOOL  (tmode_t)2U     /**< @brief Thread allocated
+                                                 from a Memory Pool.        */
+#define CH_FLAG_TERMINATE   (tmode_t)4U     /**< @brief Termination requested
+                                                 flag.                      */
 /** @} */
 
 /*===========================================================================*/
@@ -164,17 +171,13 @@ extern "C" {
 /* If the performance code path has been chosen then all the following
    functions are inlined into the various kernel modules.*/
 #if CH_CFG_OPTIMIZE_SPEED == TRUE
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
 static inline void ch_sch_prio_insert(ch_queue_t *qp, ch_queue_t *tp) {
 
   ch_queue_t *cp = qp;
   do {
-    ch_queue_t *next = cp->next;
-
-    /* Safety checks.*/
-    chSftValidateDataPointerX(3, next);
-    chSftAssert(2, next->prev == cp, "link back");
-
-    cp = next;
+    cp = cp->next;
   } while ((cp != qp) &&
            (threadref(cp)->hdr.pqueue.prio >= threadref(tp)->hdr.pqueue.prio));
   tp->next       = cp;
@@ -182,6 +185,7 @@ static inline void ch_sch_prio_insert(ch_queue_t *qp, ch_queue_t *tp) {
   tp->prev->next = tp;
   cp->prev       = tp;
 }
+#pragma GCC diagnostic pop
 #endif /* CH_CFG_OPTIMIZE_SPEED == TRUE */
 
 #endif /* CHSCHD_H */

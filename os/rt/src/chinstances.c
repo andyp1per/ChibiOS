@@ -58,30 +58,6 @@
  *
  * @param[in] p         the thread parameter, unused in this scenario
  */
-#if defined(RP2350) && (CH_CFG_SMP_MODE == TRUE)
-/*
- * RP2350 SMP: route each core to a distinct striped-SRAM bank so their idle
- * instruction fetches can proceed in parallel without arbitration stalls.
- *
- * rp2350_idle_c0/c1 are in rp2350_idle_loops.S (.ramtext), separated by
- * .balign 4 so they land in consecutive (different) 4-byte striped-SRAM
- * banks. optimize("O0") prevents GCC from analysing the call targets as
- * infinite loops and collapsing this function to a single b.n instruction.
- */
-extern void rp2350_idle_c0(void);
-extern void rp2350_idle_c1(void);
-
-__attribute__((noinline, optimize("O0"), section(".ramtext")))
-static void __idle_thread(void *p) {
-  (void)p;
-  if (port_get_core_id() == 0U) {
-    rp2350_idle_c0();
-  } else {
-    rp2350_idle_c1();
-  }
-}
-#else
-__attribute__((noinline, section(".ramtext")))
 static void __idle_thread(void *p) {
 
   (void)p;
@@ -94,7 +70,6 @@ static void __idle_thread(void *p) {
     CH_CFG_IDLE_LOOP_HOOK();
   }
 }
-#endif /* RP2350 && SMP */
 #endif /* CH_CFG_NO_IDLE_THREAD == FALSE */
 
 /*===========================================================================*/
@@ -105,8 +80,8 @@ static void __idle_thread(void *p) {
  * @brief   Initializes a system instance.
  * @note    The system instance is in I-Lock state after initialization.
  *
- * @param[out] oip      pointer to an @p os_instance_t object
- * @param[in] oicp      pointer to an @p os_instance_config_t object
+ * @param[out] oip      pointer to the @p os_instance_t structure
+ * @param[in] oicp      pointer to the @p os_instance_config_t structure
  *
  * @special
  */
@@ -161,28 +136,23 @@ void chInstanceObjectInit(os_instance_t *oip,
   __stats_object_init(&oip->kernel_stats);
 #endif
 
-  /* Now this instruction flow becomes the main thread or the idle thread
-     depending on the CH_CFG_NO_IDLE_THREAD setting.*/
-  {
 #if CH_CFG_NO_IDLE_THREAD == FALSE
-    const THD_DECL(main_thd_desc,
-                   "main", oicp->cstack_base, oicp->cstack_end,
-                   NORMALPRIO, NULL, NULL, oip
-    );
-
-    oip->rlist.current = chThdObjectInit(&oip->mainthread, &main_thd_desc);
-#else
-    const THD_DECL(idle_thd_desc,
-                   "idle", oicp->cstack_base, oicp->cstack_end,
-                   IDLEPRIO, NULL, NULL, oip
-    );
-
-    oip->rlist.current = chThdObjectInit(&oip->idlethread, &idle_thd_desc);
-#endif
-  }
-
+  /* Now this instructions flow becomes the main thread.*/
 #if CH_CFG_USE_REGISTRY == TRUE
-  REG_INSERT(oip, oip->rlist.current);
+  oip->rlist.current = __thd_object_init(oip, &oip->mainthread,
+                                         (const char *)&ch_debug, NORMALPRIO);
+#else
+  oip->rlist.current = __thd_object_init(oip, &oip->mainthread,
+                                         "main", NORMALPRIO);
+#endif
+#else
+  /* Now this instructions flow becomes the idle thread.*/
+  oip->rlist.current = __thd_object_init(oip, &oip->mainthread,
+                                         "idle", IDLEPRIO);
+#endif
+
+#if (CH_DBG_ENABLE_STACK_CHECK == TRUE) || (CH_CFG_USE_DYNAMIC == TRUE)
+  oip->rlist.current->wabase = oicp->mainthread_base;
 #endif
 
   /* Setting up the caller as current thread.*/
@@ -198,22 +168,26 @@ void chInstanceObjectInit(os_instance_t *oip,
 
 #if CH_CFG_NO_IDLE_THREAD == FALSE
   {
-    const THD_DECL(idle_thd_desc,
-                   "idle", oicp->idlestack_base, oicp->idlestack_end,
-                   IDLEPRIO, __idle_thread, NULL, oip
-    );
+    thread_descriptor_t idle_descriptor = {
+      .name     = "idle",
+      .wbase    = oicp->idlethread_base,
+      .wend     = oicp->idlethread_end,
+      .prio     = IDLEPRIO,
+      .funcp    = __idle_thread,
+      .arg      = NULL
+    };
 
 #if CH_DBG_FILL_THREADS == TRUE
-    __thd_stackfill((uint8_t *)idle_thd_desc.wbase,
-                    (uint8_t *)idle_thd_desc.wend);
+    __thd_stackfill((uint8_t *)idle_descriptor.wbase,
+                    (uint8_t *)idle_descriptor.wend);
 #endif
 
     /* This thread has the lowest priority in the system, its role is just to
        serve interrupts in its context while keeping the lowest energy saving
        mode compatible with the system status.*/
-    (void) chThdSpawnRunningI(&oip->idlethread, &idle_thd_desc);
+    (void) chThdCreateI(&idle_descriptor);
   }
-#endif /* CH_CFG_NO_IDLE_THREAD == FALSE */
+#endif
 }
 
 /** @} */

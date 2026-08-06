@@ -10,9 +10,8 @@ ifeq ($(CHCONFDIR),)
   endif
 endif
 
-CHLIBCONF := $(strip $(shell cat $(CHCONFDIR)/chconf.h | grep -E "\#define"))
+CHLIBCONF := $(strip $(shell cat $(CHCONFDIR)/chconf.h | egrep -e "\#define"))
 
-OSLIBSRC := $(CHIBIOS)/os/oslib/src/chmemchecks.c
 ifneq ($(findstring CH_CFG_USE_MAILBOXES TRUE,$(CHLIBCONF)),)
 OSLIBSRC += $(CHIBIOS)/os/oslib/src/chmboxes.c
 endif
@@ -38,8 +37,7 @@ ifneq ($(findstring CH_CFG_USE_FACTORY TRUE,$(CHLIBCONF)),)
 OSLIBSRC += $(CHIBIOS)/os/oslib/src/chfactory.c
 endif
 else
-OSLIBSRC := $(CHIBIOS)/os/oslib/src/chmemchecks.c \
-            $(CHIBIOS)/os/oslib/src/chmboxes.c \
+OSLIBSRC := $(CHIBIOS)/os/oslib/src/chmboxes.c \
             $(CHIBIOS)/os/oslib/src/chmemcore.c \
             $(CHIBIOS)/os/oslib/src/chmemheaps.c \
             $(CHIBIOS)/os/oslib/src/chmempools.c \

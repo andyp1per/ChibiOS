@@ -112,7 +112,7 @@ extern "C" {
  * @pre     The objects size must be a multiple of the alignment
  *          requirement.
  *
- * @param[out] ofp      pointer to a @p objects_fifo_t object
+ * @param[out] ofp      pointer to a @p objects_fifo_t structure
  * @param[in] objsize   object size
  * @param[in] objn      number of objects available
  * @param[in] objalign  required objects alignment
@@ -140,7 +140,7 @@ static inline void chFifoObjectInitAligned(objects_fifo_t *ofp, size_t objsize,
  * @pre     The objects size must be a multiple of the alignment
  *          requirement.
  *
- * @param[out] ofp      pointer to a @p objects_fifo_t object
+ * @param[out] ofp      pointer to a @p objects_fifo_t structure
  * @param[in] objsize   object size
  * @param[in] objn      number of objects available
  * @param[in] objbuf    pointer to the buffer of objects, it must be able
@@ -162,7 +162,7 @@ static inline void chFifoObjectInit(objects_fifo_t *ofp, size_t objsize,
 /**
  * @brief   Allocates a free object.
  *
- * @param[in] ofp       pointer to a @p objects_fifo_t object
+ * @param[in] ofp       pointer to a @p objects_fifo_t structure
  * @return              The pointer to the allocated object.
  * @retval NULL         if an object is not immediately available.
  *
@@ -176,11 +176,12 @@ static inline void *chFifoTakeObjectI(objects_fifo_t *ofp) {
 /**
  * @brief   Allocates a free object.
  *
- * @param[in] ofp       pointer to a @p objects_fifo_t object
- * @param[in] timeout   number of ticks before the operation timeouts,
+ * @param[in] ofp       pointer to a @p objects_fifo_t structure
+ * @param[in] timeout   the number of ticks before the operation timeouts,
  *                      the following special values are allowed:
  *                      - @a TIME_IMMEDIATE immediate timeout.
  *                      - @a TIME_INFINITE no timeout.
+ *                      .
  * @return              The pointer to the allocated object.
  * @retval NULL         if an object is not available within the specified
  *                      timeout.
@@ -196,11 +197,12 @@ static inline void *chFifoTakeObjectTimeoutS(objects_fifo_t *ofp,
 /**
  * @brief   Allocates a free object.
  *
- * @param[in] ofp       pointer to a @p objects_fifo_t object
- * @param[in] timeout   number of ticks before the operation timeouts,
+ * @param[in] ofp       pointer to a @p objects_fifo_t structure
+ * @param[in] timeout   the number of ticks before the operation timeouts,
  *                      the following special values are allowed:
  *                      - @a TIME_IMMEDIATE immediate timeout.
  *                      - @a TIME_INFINITE no timeout.
+ *                      .
  * @return              The pointer to the allocated object.
  * @retval NULL         if an object is not available within the specified
  *                      timeout.
@@ -216,7 +218,7 @@ static inline void *chFifoTakeObjectTimeout(objects_fifo_t *ofp,
 /**
  * @brief   Releases a fetched object.
  *
- * @param[in] ofp       pointer to a @p objects_fifo_t object
+ * @param[in] ofp       pointer to a @p objects_fifo_t structure
  * @param[in] objp      pointer to the object to be released
  *
  * @iclass
@@ -230,7 +232,7 @@ static inline void chFifoReturnObjectI(objects_fifo_t *ofp,
 /**
  * @brief   Releases a fetched object.
  *
- * @param[in] ofp       pointer to a @p objects_fifo_t object
+ * @param[in] ofp       pointer to a @p objects_fifo_t structure
  * @param[in] objp      pointer to the object to be released
  *
  * @sclass
@@ -244,7 +246,7 @@ static inline void chFifoReturnObjectS(objects_fifo_t *ofp,
 /**
  * @brief   Releases a fetched object.
  *
- * @param[in] ofp       pointer to a @p objects_fifo_t object
+ * @param[in] ofp       pointer to a @p objects_fifo_t structure
  * @param[in] objp      pointer to the object to be released
  *
  * @api
@@ -259,7 +261,7 @@ static inline void chFifoReturnObject(objects_fifo_t *ofp,
  * @brief   Posts an object.
  * @note    By design the object can be always immediately posted.
  *
- * @param[in] ofp       pointer to a @p objects_fifo_t object
+ * @param[in] ofp       pointer to a @p objects_fifo_t structure
  * @param[in] objp      pointer to the object to be posted
  *
  * @iclass
@@ -276,7 +278,7 @@ static inline void chFifoSendObjectI(objects_fifo_t *ofp,
  * @brief   Posts an object.
  * @note    By design the object can be always immediately posted.
  *
- * @param[in] ofp       pointer to a @p objects_fifo_t object
+ * @param[in] ofp       pointer to a @p objects_fifo_t structure
  * @param[in] objp      pointer to the object to be posted
  *
  * @sclass
@@ -293,7 +295,7 @@ static inline void chFifoSendObjectS(objects_fifo_t *ofp,
  * @brief   Posts an object.
  * @note    By design the object can be always immediately posted.
  *
- * @param[in] ofp       pointer to a @p objects_fifo_t object
+ * @param[in] ofp       pointer to a @p objects_fifo_t structure
  * @param[in] objp      pointer to the object to be released
  *
  * @api
@@ -310,7 +312,7 @@ static inline void chFifoSendObject(objects_fifo_t *ofp, void *objp) {
  * @brief   Posts an high priority object.
  * @note    By design the object can be always immediately posted.
  *
- * @param[in] ofp       pointer to a @p objects_fifo_t object
+ * @param[in] ofp       pointer to a @p objects_fifo_t structure
  * @param[in] objp      pointer to the object to be posted
  *
  * @iclass
@@ -327,7 +329,7 @@ static inline void chFifoSendObjectAheadI(objects_fifo_t *ofp,
  * @brief   Posts an high priority object.
  * @note    By design the object can be always immediately posted.
  *
- * @param[in] ofp       pointer to a @p objects_fifo_t object
+ * @param[in] ofp       pointer to a @p objects_fifo_t structure
  * @param[in] objp      pointer to the object to be posted
  *
  * @sclass
@@ -344,7 +346,7 @@ static inline void chFifoSendObjectAheadS(objects_fifo_t *ofp,
  * @brief   Posts an high priority object.
  * @note    By design the object can be always immediately posted.
  *
- * @param[in] ofp       pointer to a @p objects_fifo_t object
+ * @param[in] ofp       pointer to a @p objects_fifo_t structure
  * @param[in] objp      pointer to the object to be released
  *
  * @api
@@ -360,7 +362,7 @@ static inline void chFifoSendObjectAhead(objects_fifo_t *ofp, void *objp) {
 /**
  * @brief   Fetches an object.
  *
- * @param[in] ofp       pointer to a @p objects_fifo_t object
+ * @param[in] ofp       pointer to a @p objects_fifo_t structure
  * @param[in] objpp     pointer to the fetched object reference
  * @return              The operation status.
  * @retval MSG_OK       if an object has been correctly fetched.
@@ -377,12 +379,13 @@ static inline msg_t chFifoReceiveObjectI(objects_fifo_t *ofp,
 /**
  * @brief   Fetches an object.
  *
- * @param[in] ofp       pointer to a @p objects_fifo_t object
+ * @param[in] ofp       pointer to a @p objects_fifo_t structure
  * @param[in] objpp     pointer to the fetched object reference
- * @param[in] timeout   number of ticks before the operation timeouts,
+ * @param[in] timeout   the number of ticks before the operation timeouts,
  *                      the following special values are allowed:
  *                      - @a TIME_IMMEDIATE immediate timeout.
  *                      - @a TIME_INFINITE no timeout.
+ *                      .
  * @return              The operation status.
  * @retval MSG_OK       if an object has been correctly fetched.
  * @retval MSG_TIMEOUT  if the operation has timed out.
@@ -399,12 +402,13 @@ static inline msg_t chFifoReceiveObjectTimeoutS(objects_fifo_t *ofp,
 /**
  * @brief   Fetches an object.
  *
- * @param[in] ofp       pointer to a @p objects_fifo_t object
+ * @param[in] ofp       pointer to a @p objects_fifo_t structure
  * @param[in] objpp     pointer to the fetched object reference
- * @param[in] timeout   number of ticks before the operation timeouts,
+ * @param[in] timeout   the number of ticks before the operation timeouts,
  *                      the following special values are allowed:
  *                      - @a TIME_IMMEDIATE immediate timeout.
  *                      - @a TIME_INFINITE no timeout.
+ *                      .
  * @return              The operation status.
  * @retval MSG_OK       if an object has been correctly fetched.
  * @retval MSG_TIMEOUT  if the operation has timed out.
