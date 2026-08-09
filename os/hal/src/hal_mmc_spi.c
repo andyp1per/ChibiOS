@@ -988,7 +988,6 @@ failed:
  */
 bool mmcSequentialWrite(MMCDriver *mmcp, const uint8_t *buffer) {
   static const uint8_t start[] = {0xFF, 0xFC};
-  bool idle = false;
 
   osalDbgCheck((mmcp != NULL) && (buffer != NULL));
 
@@ -1019,9 +1018,12 @@ bool mmcSequentialWrite(MMCDriver *mmcp, const uint8_t *buffer) {
     (void) spiExchange(mmcp->config->spip, MMC_WRITE_FRAME_SIZE, f, f);
 
     mmcp->buffer[0] = f[2U + MMCSD_BLOCK_SIZE + 2U];
-    /* Busy is a continuous low, so a 0xFF in the last slot means the card
-       finished programming inside this transfer and needs no polling.*/
-    idle = (f[MMC_WRITE_FRAME_SIZE - 1U] == 0xFFU);
+    /* The busy window still earns its place: the card usually finishes
+       programming inside it, so the poll below returns on its first byte.
+       It is not evidence on its own though - a card that has not yet pulled
+       MISO low reads back all ones, which is indistinguishable from one that
+       has finished. Treating that as done sends the next data token into a
+       busy card, which discards the block and reports nothing.*/
   }
   else {
     (void) spiSend(mmcp->config->spip, sizeof(start), start);    /* Data prologue.   */
@@ -1031,7 +1033,7 @@ bool mmcSequentialWrite(MMCDriver *mmcp, const uint8_t *buffer) {
   }
 
   if ((mmcp->buffer[0] & 0x1FU) == 0x05U) {
-    return idle ? HAL_SUCCESS : mmc_wait_idle(mmcp);
+    return mmc_wait_idle(mmcp);
   }
 
   /* Error.*/
