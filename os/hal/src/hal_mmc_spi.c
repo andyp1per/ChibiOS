@@ -209,10 +209,40 @@ static bool mmc_read(void *instance, uint32_t startblk,
   return err;
 }
 
+#if MMC_USE_WRITE_STATS == TRUE
+/* Write path instrumentation: partitions the cost of a block into wire time,
+   card busy time and everything else, so the ceiling this hardware can reach
+   can be told apart from what the scheduling around it is costing. Read with
+   a debugger; see hwdef/RPI_UAVFC/DEVELOPMENT.md for what the numbers mean. */
+volatile uint32_t mmc_wr_blocks;
+volatile uint32_t mmc_wr_calls;
+volatile uint32_t mmc_wr_us_exchange;
+volatile uint32_t mmc_wr_us_idle;
+volatile uint32_t mmc_wr_us_block;
+volatile uint32_t mmc_wr_us_call;
+volatile uint32_t mmc_wr_us_idle_max;
+/* mmc_wait_idle outcome. A poll is a 16 byte exchange, so it can never take
+   zero microseconds - the earlier "zero wait" counter measured nothing. What
+   matters is whether the card was ready before the fixed 500 us sleep, since
+   a sleep that overshoots real readiness is a software cost wearing the
+   card's clothes. */
+volatile uint32_t mmc_wr_idle_p1;
+volatile uint32_t mmc_wr_idle_p2;
+volatile uint32_t mmc_wr_idle_slept;
+volatile uint32_t mmc_wr_idle_sleeps;
+/* blocks per disk_write, to see how much of the 4 KB chunk survives FATFS */
+volatile uint32_t mmc_wr_n_hist[10];
+#endif /* MMC_USE_WRITE_STATS */
+
 static bool mmc_write(void *instance, uint32_t startblk,
                  const uint8_t *buffer, uint32_t n) {
   MMCDriver *mmcp = (MMCDriver *)instance;
   bool err = HAL_FAILED;
+#if MMC_USE_WRITE_STATS == TRUE
+  const systime_t t_c0 = osalOsGetSystemTimeX();
+
+  mmc_wr_n_hist[(n < 9U) ? n : 9U]++;
+#endif
 
 #if MMC_USE_MUTUAL_EXCLUSION == TRUE
   spiAcquireBus(mmcp->config->spip);
@@ -240,6 +270,11 @@ static bool mmc_write(void *instance, uint32_t startblk,
 
 #if MMC_USE_MUTUAL_EXCLUSION == TRUE
   spiReleaseBus(mmcp->config->spip);
+#endif
+
+#if MMC_USE_WRITE_STATS == TRUE
+  mmc_wr_us_call += (uint32_t)(osalOsGetSystemTimeX() - t_c0);
+  mmc_wr_calls++;
 #endif
 
   return err;
@@ -314,6 +349,9 @@ static bool mmc_wait_idle(MMCDriver *mmcp) {
   (void) spiReceive(mmcp->config->spip, MMC_BUFFER_SIZE, mmcp->buffer);
   for (j = 0U; j < MMC_BUFFER_SIZE; j++) {
     if (mmcp->buffer[j] == 0xFFU) {
+#if MMC_USE_WRITE_STATS == TRUE
+      mmc_wr_idle_p1++;
+#endif
       return HAL_SUCCESS;
     }
   }
@@ -324,12 +362,23 @@ static bool mmc_wait_idle(MMCDriver *mmcp) {
     (void) spiReceive(mmcp->config->spip, MMC_BUFFER_SIZE, mmcp->buffer);
     for (j = 0U; j < MMC_BUFFER_SIZE; j++) {
       if (mmcp->buffer[j] == 0xFFU) {
+#if MMC_USE_WRITE_STATS == TRUE
+        if (i == 0U) {
+          mmc_wr_idle_p2++;
+        }
+        else {
+          mmc_wr_idle_slept++;
+        }
+#endif
         return HAL_SUCCESS;
       }
     }
 
     /* Trying to be nice with the other threads.*/
     osalThreadSleepMicroseconds(MMC_WRITE_WAIT_USEC);
+#if MMC_USE_WRITE_STATS == TRUE
+    mmc_wr_idle_sleeps++;
+#endif
   } while (++i < MMC_TIMEOUT_WRITE);
 
   return HAL_FAILED;
@@ -1027,7 +1076,13 @@ bool mmcSequentialWrite(MMCDriver *mmcp, const uint8_t *buffer) {
 
     /* In place: the transmit side of each byte is consumed before the received
        byte replaces it.*/
+#if MMC_USE_WRITE_STATS == TRUE
+    const systime_t t_x0 = osalOsGetSystemTimeX();
+#endif
     (void) spiExchange(mmcp->config->spip, MMC_WRITE_FRAME_SIZE, f, f);
+#if MMC_USE_WRITE_STATS == TRUE
+    mmc_wr_us_exchange += (uint32_t)(osalOsGetSystemTimeX() - t_x0);
+#endif
 
     mmcp->buffer[0] = f[2U + MMCSD_BLOCK_SIZE + 2U];
     /* The busy window still earns its place: the card finishes programming
@@ -1045,7 +1100,19 @@ bool mmcSequentialWrite(MMCDriver *mmcp, const uint8_t *buffer) {
   }
 
   if ((mmcp->buffer[0] & 0x1FU) == 0x05U) {
+#if MMC_USE_WRITE_STATS == TRUE
+    const systime_t t_i0 = osalOsGetSystemTimeX();
+    const bool res = mmc_wait_idle(mmcp);
+    const uint32_t dt = (uint32_t)(osalOsGetSystemTimeX() - t_i0);
+    mmc_wr_us_idle += dt;
+    if (dt > mmc_wr_us_idle_max) {
+      mmc_wr_us_idle_max = dt;
+    }
+    mmc_wr_blocks++;
+    return res;
+#else
     return mmc_wait_idle(mmcp);
+#endif
   }
 
   /* Error.*/
