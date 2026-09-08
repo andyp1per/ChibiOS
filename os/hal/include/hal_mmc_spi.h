@@ -85,6 +85,17 @@
 #if !defined(MMC_USE_MUTUAL_EXCLUSION) || defined(__DOXYGEN__)
 #define MMC_USE_MUTUAL_EXCLUSION        TRUE
 #endif
+
+/**
+ * @brief   Write path statistics, readable by a debugger.
+ * @details Counters splitting the cost of a block into wire time, card busy
+ *          time and the rest, plus the distribution of blocks per
+ *          @p disk_write call. Investigation only - each block pays four
+ *          reads of the system time.
+ */
+#if !defined(MMC_USE_WRITE_STATS) || defined(__DOXYGEN__)
+#define MMC_USE_WRITE_STATS             FALSE
+#endif
 /** @} */
 
 /*===========================================================================*/
