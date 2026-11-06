@@ -133,6 +133,11 @@ void hal_lld_init(void) {
   stBind();
 #endif
 
+#if defined(RP_QMI_CONT_READ_MODE)
+  /* After the C runtime has set up .bss, and before core1 can fetch. */
+  rp_qmi_cont_read_init();
+#endif
+
 #if RP_CORE1_START == TRUE
   start_core1();
 #endif

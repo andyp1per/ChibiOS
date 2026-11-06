@@ -141,11 +141,19 @@
 /* External declarations.                                                    */
 /*===========================================================================*/
 
+#if defined(RP_QMI_CONT_READ_MODE)
+extern bool rp_qmi_cont_read_active;
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
   void rp_clock_init(void);
   uint32_t rp_clock_get_hz(uint32_t clk_index);
+#if defined(RP_QMI_CONT_READ_MODE)
+  void rp_qmi_cont_read_init(void);
+  void rp_qmi_restore_read_format(uint32_t rfmt, uint32_t rcmd);
+#endif
 #ifdef __cplusplus
 }
 #endif
